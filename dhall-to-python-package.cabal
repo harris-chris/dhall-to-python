@@ -1,0 +1,61 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.4.
+--
+-- see: https://github.com/sol/hpack
+
+name:           dhall-to-python-package
+version:        0.0.0
+build-type:     Simple
+
+library
+  exposed-modules:
+      DhallToPythonLib
+  other-modules:
+      Paths_dhall_to_python_package
+  hs-source-dirs:
+      src
+  default-extensions:
+      OverloadedStrings
+  build-depends:
+      base ==4.*
+    , dhall ==1.41.2
+    , filepath
+    , text
+  default-language: Haskell2010
+
+executable dhall-to-python
+  main-is: Main.hs
+  other-modules:
+      Paths_dhall_to_python_package
+  default-extensions:
+      OverloadedStrings
+  build-depends:
+      base ==4.*
+    , dhall ==1.41.2
+    , dhall-to-python-package
+    , filepath
+    , text
+  default-language: Haskell2010
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      DhallToPythonLib
+      Paths_dhall_to_python_package
+  hs-source-dirs:
+      test
+      src
+  default-extensions:
+      OverloadedStrings
+  build-tool-depends:
+      hspec-discover:hspec-discover
+  build-depends:
+      HUnit >=1.6.0.0
+    , base ==4.*
+    , dhall ==1.41.2
+    , filepath
+    , hspec ==2.*
+    , text
+  default-language: Haskell2010

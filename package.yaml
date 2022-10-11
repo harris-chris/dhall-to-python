@@ -1,0 +1,31 @@
+name: dhall-to-python-package
+
+dependencies:
+  - base == 4.*
+  - dhall == 1.41.2
+  - filepath
+  - text
+
+library:
+  source-dirs: src
+  exposed-modules: DhallToPythonLib
+  default-extensions:	OverloadedStrings
+
+executables:
+  dhall-to-python:
+    main: Main.hs
+    dependencies:
+      - dhall-to-python-package
+    default-extensions:	OverloadedStrings
+
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs:
+      - test
+      - src
+    dependencies:
+      - hspec == 2.*
+      - HUnit >= 1.6.0.0
+    build-tools: hspec-discover
+    default-extensions:	OverloadedStrings
