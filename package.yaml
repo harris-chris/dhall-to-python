@@ -5,6 +5,7 @@ dependencies:
   - dhall == 1.41.2
   - filepath
   - text
+  - megaparsec >= 9.2.1
 
 library:
   source-dirs: src
@@ -27,5 +28,6 @@ tests:
     dependencies:
       - hspec == 2.*
       - HUnit >= 1.6.0.0
+      - megaparsec >= 9.2.1
     build-tools: hspec-discover
     default-extensions:	OverloadedStrings
