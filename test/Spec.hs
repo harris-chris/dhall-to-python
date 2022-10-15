@@ -33,10 +33,16 @@ main = hspec $ do
             case actual of
                 Left _ -> assertFailure "Expression could not be parsed"
                 Right (Note src (Note src' val)) -> do
+                    -- The original source, as it was read
                     src `shouldBe` Src
                         (SourcePos fpath (mkPos 1) (mkPos 1))
                         (SourcePos fpath (mkPos 2) (mkPos 1))
                         "22\n"
+                    -- The parsed source, with eg newlines removed
+                    src' `shouldBe` Src
+                        (SourcePos fpath (mkPos 1) (mkPos 1))
+                        (SourcePos fpath (mkPos 1) (mkPos 3))
+                        "22"
                     val `shouldBe` expected
                 Right _ -> assertFailure "Parsed expression was not expected"
 
