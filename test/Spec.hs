@@ -24,8 +24,8 @@ main = hspec $ do
                 Right ( Note _ val ) -> val `shouldBe` expected
                 Right _ -> assertFailure "Expected not actual"
 
-    describe "Read and parse a dhall file" $ do
-        it "parses a file with a natural number" $ do
+    describe "Parses dhall files" $ do
+        it "Parses natural.dhall" $ do
             let fpath = testData </> "natural.dhall" :: FilePath
             contents <- TIO.readFile fpath
             let expected = NaturalLit 22
@@ -46,5 +46,26 @@ main = hspec $ do
                     val `shouldBe` expected
                 Right _ -> assertFailure "Parsed expression was not expected"
 
+        it "parses type.dhall" $ do
+            let fpath = testData </> "type.dhall" :: FilePath
+            contents <- TIO.readFile fpath
+            let expected = Natural
+            let actual = exprFromText fpath contents
+            case actual of
+                Left _ -> assertFailure "Expression could not be parsed"
+                Right (Note src (Note src' val)) -> do
+                    val `shouldBe` expected
+                Right _ -> assertFailure "Parsed expression was not expected"
+
+        it "parses untyped_record.dhall" $ do
+            let fpath = testData </> "untyped_record.dhall" :: FilePath
+            contents <- TIO.readFile fpath
+            let expected = Natural
+            let actual = exprFromText fpath contents
+            case actual of
+                Left _ -> assertFailure "Expression could not be parsed"
+                Right (Note src (Note src' val)) -> do
+                    val `shouldBe` expected
+                Right _ -> assertFailure "Parsed expression was not expected"
 
 

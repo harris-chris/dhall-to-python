@@ -19,6 +19,7 @@ library
       OverloadedStrings
   build-depends:
       base ==4.*
+    , containers ==0.6.6
     , dhall ==1.41.2
     , filepath
     , megaparsec >=9.2.1
@@ -33,6 +34,7 @@ executable dhall-to-python
       OverloadedStrings
   build-depends:
       base ==4.*
+    , containers ==0.6.6
     , dhall ==1.41.2
     , dhall-to-python-package
     , filepath
@@ -56,6 +58,7 @@ test-suite spec
   build-depends:
       HUnit >=1.6.0.0
     , base ==4.*
+    , containers ==0.6.6
     , dhall ==1.41.2
     , filepath
     , hspec ==2.*
