@@ -1,8 +1,10 @@
 import Test.Hspec
 import Test.HUnit.Lang (assertFailure)
+import Data.Map as Map
 import Debug.Trace (traceShowId)
 import DhallToPythonLib
 import Dhall.Core
+import Dhall.Map as DhallMap
 import Dhall.Parser
 import Dhall.Src
 import qualified Data.Text as T
@@ -23,6 +25,18 @@ main = hspec $ do
                 Left err -> assertFailure "Could not parse"
                 Right ( Note _ val ) -> val `shouldBe` expected
                 Right _ -> assertFailure "Expected not actual"
+
+        it "parses a record type to a dataclass" $ do
+            let field_nat = makeRecordField Natural
+            let field_dbl = makeRecordField Double
+            let orig_map = DhallMap.fromList
+                            [("nat_val", field_nat), ("dbl_val", field_dbl)]
+            let orig = Record orig_map
+            let expected = PyType $ Dataclass $ DhallMap.fromList
+                            [("nat_val", PyType PythonIntType),
+                              ("dbl_val", PyType PythonFloatType)]
+            let actual = convert orig
+            actual `shouldBe` expected
 
     describe "Parses dhall files" $ do
         it "Parses natural.dhall" $ do
@@ -57,16 +71,16 @@ main = hspec $ do
                     val `shouldBe` expected
                 Right _ -> assertFailure "Parsed expression was not expected"
 
-        it "parses untyped_record.dhall" $ do
-            let fpath = testData </> "untyped_record.dhall" :: FilePath
-            contents <- TIO.readFile fpath
-            let expected = Natural
-            let actual = exprFromText fpath contents
-            case actual of
-                Left _ -> assertFailure "Expression could not be parsed"
-                Right (Note src (Note src' val)) -> do
-                    val `shouldBe` expected
-                Right _ -> assertFailure "Parsed expression was not expected"
+        -- it "parses untyped_record.dhall" $ do
+        --     let fpath = testData </> "untyped_record.dhall" :: FilePath
+        --     contents <- TIO.readFile fpath
+        --     let expected = Natural
+        --     let actual = exprFromText fpath contents
+        --     case actual of
+        --         Left _ -> assertFailure "Expression could not be parsed"
+        --         Right (Note src (Note src' val)) -> do
+        --             val `shouldBe` expected
+        --         Right _ -> assertFailure "Parsed expression was not expected"
 
     describe "Performs Dhall to Python conversions" $ do
         it "Converts " $ do
