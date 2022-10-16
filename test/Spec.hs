@@ -3,17 +3,24 @@ import Test.HUnit.Lang (assertFailure)
 import Data.Map as Map
 import Debug.Trace (traceShowId)
 import DhallToPythonLib
+import ReadWrite
 import Dhall.Core
 import Dhall.Map as DhallMap
 import Dhall.Parser
 import Dhall.Src
-import qualified Data.Text as T
+import qualified Data.Text
 import qualified Data.Text.IO as TIO
 import Text.Megaparsec (SourcePos(..), mkPos)
 import System.FilePath ((</>))
 
-testData :: FilePath
-testData = "test/test_files"
+testSourceFolder :: FilePath
+testSourceFolder = "test/test_files/test_source_files"
+
+tempOutputFolder :: FilePath
+tempOutputFolder = "test/test_files/temp_output_files"
+
+targetOutputFolder :: FilePath
+targetOutputFolder = "test/test_files/target_output_files"
 
 main :: IO ()
 main = hspec $ do
@@ -32,7 +39,7 @@ main = hspec $ do
             let orig_map = DhallMap.fromList
                             [("nat_val", field_nat), ("dbl_val", field_dbl)]
             let orig = Record orig_map
-            let expected = PyType $ Dataclass $ DhallMap.fromList
+            let expected = PyType $ Dataclass "ToDataclass" $ DhallMap.fromList
                             [("nat_val", PyType PythonIntType),
                               ("dbl_val", PyType PythonFloatType)]
             let actual = convert orig
@@ -40,7 +47,7 @@ main = hspec $ do
 
     describe "Parses dhall files" $ do
         it "Parses natural.dhall" $ do
-            let fpath = testData </> "natural.dhall" :: FilePath
+            let fpath = testSourceFolder </> "natural.dhall" :: FilePath
             contents <- TIO.readFile fpath
             let expected = NaturalLit 22
             let actual = exprFromText fpath contents
@@ -61,7 +68,7 @@ main = hspec $ do
                 Right _ -> assertFailure "Parsed expression was not expected"
 
         it "parses type.dhall" $ do
-            let fpath = testData </> "type.dhall" :: FilePath
+            let fpath = testSourceFolder </> "type.dhall" :: FilePath
             contents <- TIO.readFile fpath
             let expected = Natural
             let actual = exprFromText fpath contents
@@ -71,36 +78,7 @@ main = hspec $ do
                     val `shouldBe` expected
                 Right _ -> assertFailure "Parsed expression was not expected"
 
-        -- it "parses untyped_record.dhall" $ do
-        --     let fpath = testData </> "untyped_record.dhall" :: FilePath
-        --     contents <- TIO.readFile fpath
-        --     let expected = Natural
-        --     let actual = exprFromText fpath contents
-        --     case actual of
-        --         Left _ -> assertFailure "Expression could not be parsed"
-        --         Right (Note src (Note src' val)) -> do
-        --             val `shouldBe` expected
-        --         Right _ -> assertFailure "Parsed expression was not expected"
-
-    describe "Performs Dhall to Python conversions" $ do
-        it "Converts " $ do
-            let fpath = testData </> "natural.dhall" :: FilePath
-            contents <- TIO.readFile fpath
-            let expected = NaturalLit 22
-            let actual = exprFromText fpath contents
-            case actual of
-                Left _ -> assertFailure "Expression could not be parsed"
-                Right (Note src (Note src' val)) -> do
-                    -- The original source, as it was read
-                    src `shouldBe` Src
-                        (SourcePos fpath (mkPos 1) (mkPos 1))
-                        (SourcePos fpath (mkPos 2) (mkPos 1))
-                        "22\n"
-                    -- The parsed source, with eg newlines removed
-                    src' `shouldBe` Src
-                        (SourcePos fpath (mkPos 1) (mkPos 1))
-                        (SourcePos fpath (mkPos 1) (mkPos 3))
-                        "22"
-                    val `shouldBe` expected
-                Right _ -> assertFailure "Parsed expression was not expected"
-
+    describe "Convert dhall file to python file" $ do
+        it "converts dataclass_only_module.dhall" $ do
+            let source = testSourceFolder </> "dataclass_only_module.dhall"
+            dhallFileToPythonPackage source $ tempOutputFolder </> "dataclass_only_module"
