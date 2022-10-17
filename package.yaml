@@ -11,7 +11,7 @@ dependencies:
 
 library:
   source-dirs: src
-  exposed-modules: DhallToPythonLib
+  exposed-modules: ParsedPackage
   default-extensions:	OverloadedStrings
 
 executables:

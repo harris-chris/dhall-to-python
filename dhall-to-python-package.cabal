@@ -10,8 +10,9 @@ build-type:     Simple
 
 library
   exposed-modules:
-      DhallToPythonLib
+      ParsedPackage
   other-modules:
+      ExprConversion
       ReadWrite
       Paths_dhall_to_python_package
   hs-source-dirs:
@@ -49,7 +50,8 @@ test-suite spec
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      DhallToPythonLib
+      ExprConversion
+      ParsedPackage
       ReadWrite
       Paths_dhall_to_python_package
   hs-source-dirs:

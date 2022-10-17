@@ -2,7 +2,7 @@ import Test.Hspec
 import Test.HUnit.Lang (assertFailure)
 import Data.Map as Map
 import Debug.Trace (traceShowId)
-import DhallToPythonLib
+import ExprConversion
 import ReadWrite
 import Dhall.Core
 import Dhall.Map as DhallMap

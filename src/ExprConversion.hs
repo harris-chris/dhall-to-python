@@ -1,4 +1,6 @@
-module DhallToPythonLib where
+module ExprConversion where
+
+import Debug.Trace ( traceShowId )
 
 import Data.Text
 import Dhall.Core ( Expr(..), RecordField(..) )
@@ -33,11 +35,6 @@ instance Show PythonObj where
     show (PyLit x) = show x
     show (PyType x) = show x
 
-data ParsedPackage = ParsedPackage {
-    binding_name :: Text
-    , objs :: [PythonObj]
-    , packages :: [ParsedPackage]
-} deriving (Show, Eq)
 
 class Converts a where
     convert :: a -> PythonObj
@@ -47,9 +44,11 @@ instance Converts (RecordField s a) where
 
 instance Converts (Expr s a) where
     convert Natural = PyType $ PythonIntType
+    convert (Note s expr) = convert expr
     convert Double = PyType $ PythonFloatType
     convert (NaturalLit nat) = PyLit $ PythonInt (toInteger nat)
-    convert e = error $ show e
+    -- convert e = let err = traceShowId e in error "Not matched"
+    -- convert e = error "Not matched"
     -- convert Let (Binding _ var _ _ _ (Record map) = toDataclass map
 
 toDataclass :: Text -> (DhallMap.Map Text (RecordField s a)) -> PythonObj
