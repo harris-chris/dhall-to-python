@@ -22,6 +22,12 @@ executables:
       - dhall-to-python-package
     default-extensions:	OverloadedStrings
 
+  show-dhall-expr:
+    main: ShowDhallExpr.hs
+    dependencies:
+      - dhall-to-python-package
+    default-extensions:	OverloadedStrings
+
 tests:
   spec:
     main: Spec.hs

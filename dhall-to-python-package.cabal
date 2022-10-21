@@ -48,6 +48,24 @@ executable dhall-to-python
     , text
   default-language: Haskell2010
 
+executable show-dhall-expr
+  main-is: ShowDhallExpr.hs
+  other-modules:
+      Paths_dhall_to_python_package
+  default-extensions:
+      OverloadedStrings
+  build-depends:
+      base ==4.*
+    , containers ==0.6.6
+    , dhall ==1.41.2
+    , dhall-to-python-package
+    , directory >=1.3.6.0
+    , filepath
+    , megaparsec >=9.2.1
+    , optparse-applicative >=0.16.1.0
+    , text
+  default-language: Haskell2010
+
 test-suite spec
   type: exitcode-stdio-1.0
   main-is: Spec.hs

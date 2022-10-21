@@ -2,6 +2,9 @@ module Main where
 
 import Options.Applicative
 import ReadWrite
+import qualified Data.Text.IO as TIO
+import Dhall.Parser( exprFromText, ParseError )
+import Dhall.Core( pretty )
 
 data CliOptions = CliOptions {
     showDhallExpr :: FilePath
@@ -21,7 +24,12 @@ cliOptionsParser = CliOptions
 main :: IO ()
 main = do
     opts <- execParser opts
-    print opts
+    let fpath = showDhallExpr opts
+    contents <- TIO.readFile fpath
+    let parsed = exprFromText fpath contents
+    case parsed of
+        Left _ -> print "Could not parse file"
+        Right src -> print $ pretty src
   where
     opts = info (cliOptionsParser <**> helper)
       ( fullDesc
