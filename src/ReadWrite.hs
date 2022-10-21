@@ -12,23 +12,24 @@ import Dhall.Parser( exprFromText, ParseError )
 
 import ParsedPackage
 
-dhallFileToPythonPackage :: FilePath -> FilePath -> IO (Either ParseError ())
+dhallFileToPythonPackage :: FilePath -> FilePath -> IO ()
 dhallFileToPythonPackage from_file to_folder = let
     basename = takeBaseName from_file
-    in join $ writeParsedPackage basename to_folder <$> dhallFileToParsedPackage from_file
-    -- parsedIO = dhallFileToParsedPackage from_file
-    -- -- We want to go IO (Either ParseError ParsedPackage) to IO (Either ParseError ())
-    -- -- Our write function returns IO()
-    -- -- so is this not writeParsedPackage from_file to_folder fmap . >>=
-    -- in do
-    --     parsed <- dhallFileToParsedPackage from_file :: Either ParseError ParsedPackage
-    --     writeParsedPackage basename to_folder  parsed
+    in do
+        parsedE <- dhallFileToParsedPackage from_file
+        case parsedE of
+             Left err -> printErr err
+             Right parsed -> writeParsedPackage basename to_folder parsed
+
+printErr :: ParseError -> IO ()
+printErr err = undefined
 
 dhallFileToParsedPackage :: FilePath -> IO (Either ParseError ParsedPackage)
 dhallFileToParsedPackage from_file = do
     contents <- TIO.readFile from_file
-    let expr = exprFromText from_file contents
-        in return $ exprToParsedPackage <$> expr
+    let exprE = exprFromText from_file contents
+        parsedE = exprToParsedPackage <$> exprE
+        in return parsedE
 
 writeParsedPackage :: FilePath -> FilePath -> ParsedPackage -> IO ()
 writeParsedPackage from_file to_folder output = let

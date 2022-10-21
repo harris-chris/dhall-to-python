@@ -8,10 +8,11 @@ dependencies:
   - text
   - megaparsec >= 9.2.1
   - directory >= 1.3.6.0
+  - optparse-applicative >= 0.16.1.0
 
 library:
   source-dirs: src
-  exposed-modules: ParsedPackage
+  exposed-modules: ReadWrite
   default-extensions:	OverloadedStrings
 
 executables:
