@@ -1,12 +1,16 @@
 module ExprConversion where
 
 import Debug.Trace ( traceShowId )
-import Data.Text
+import Data.Text ( Text )
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import Data.Typeable ( typeOf )
 import Data.Void ( Void )
 import Dhall.Core ( Binding(..), Expr(..), RecordField(..), denote )
 import Dhall.Map as DhallMap
 import Dhall.Parser ( Src )
+import System.Directory ( createDirectoryIfMissing )
+import System.FilePath ( (</>), (<.>), takeBaseName )
 import Text.Casing ( snake )
 
 dhallExprToPythonObj :: Expr s a -> Maybe PythonObj
@@ -24,25 +28,28 @@ data ConvertState = ConvertState {
 data PythonObj =
     PythonIntType
     | PythonFloatType
-    | PythonDataclass Text [PythonObj]
-    | PythonPackage Text [PythonObj]
+    | PythonDataclass T.Text [PythonObj]
+    | PythonPackage T.Text [PythonObj]
     deriving Eq
 
-writePythonObj :: PythonObj -> FilePath -> IO ()
-writePythonObj (PythonPackage name objs) baseFolder = let
-    pyFname = snake name <.> "py"
-    pyFpath = toFolder </> pyFname
-    pyContents = T.pack $ foldl (\acc x -> acc ++ "\n\n" ++ (show x)) "" $ objs output
-    init_fpath = toFolder </> "__init__.py"
-    init_contents = "from ." <> (T.pack from_file) <> " import " <> (binding_name output)
+writePythonObj :: FilePath -> Int -> PythonObj -> IO ()
+writePythonObj baseFolder indent (PythonPackage name objs) = let
+    pyFname = snake (T.unpack name) <.> "py"
+    pyFpath = baseFolder </> pyFname
+    initFpath = baseFolder </> "__init__.py"
+    initContents = "from ." <> name <> " import " <> name
     in do
-        createDirectoryIfMissing False to_folder
-        TIO.writeFile py_fpath pyContents
-        TIO.writeFile init_fpath init_contents
+        createDirectoryIfMissing False baseFolder
+        TIO.writeFile initFpath initContents
+        foldl (\acc x -> acc >> writePythonObj pyFpath indent x) (return ()) objs
 
-writePythonObj (PythonDataclass name objs) to_file =
-
-toCamelCase
+writePythonObj toFile indent (PythonDataclass name objs) = let
+    writeStr =
+        "@dataclass(frozen=True, eq=True)\n" <>
+        "class " <> name <> ":\n"
+    in do
+        TIO.writeFile toFile writeStr
+        foldl (\acc x -> acc >> writePythonObj toFile (indent + 1) x) (return ()) objs
 
 -- instance Show PythonObj where
 --     show PythonIntType = "int"
@@ -144,11 +151,11 @@ instance Converts (Expr s a) where
     -- convert cs e = error "Not matched"
     -- convert cs Let (Binding _ var _ _ _ (Record map) = toDataclass map
 
--- toDataclass :: Text -> (DhallMap.Map Text (RecordField s a)) -> PythonObj
+-- toDataclass :: T.Text -> (DhallMap.Map T.Text (RecordField s a)) -> PythonObj
 -- toDataclass name map = PyType $ Dataclass name $ convert <$> map
-toDataclass :: ConvertState -> Text -> (Map Text (RecordField s a)) -> (ConvertState, Maybe PythonObj)
+toDataclass :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> (ConvertState, Maybe PythonObj)
 toDataclass cs txt map = undefined
 
-toPackage :: ConvertState -> Text -> (Map Text (RecordField s a)) -> (ConvertState, Maybe PythonObj)
+toPackage :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> (ConvertState, Maybe PythonObj)
 toPackage cs txt map = undefined
 

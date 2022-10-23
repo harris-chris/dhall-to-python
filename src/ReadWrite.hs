@@ -16,13 +16,13 @@ import ExprConversion
 data FileParseError = DhallError ParseError | PythonObjNotFound
 
 dhallFileToPythonPackage :: FilePath -> FilePath -> IO ()
-dhallFileToPythonPackage from_file to_folder = let
+dhallFileToPythonPackage from_file toFolder = let
     basename = takeBaseName from_file
     in do
         parsedE <- dhallFileToPythonObj from_file
         case parsedE of
              Left err -> printErr err
-             Right parsed -> writePythonObj basename to_folder parsed
+             Right parsed -> writePythonObj basename toFolder parsed
 
 printErr :: FileParseError -> IO ()
 printErr err = undefined
@@ -37,16 +37,4 @@ dhallFileToPythonObj from_file = do
         Right objO -> return $ fromMaybe (Left PythonObjNotFound) objO
     --     parsedE = dhallExprToPythonObj <$> exprE
     --     in return parsedE
-
-writePythonObj :: FilePath -> FilePath -> PythonObj -> IO ()
-writePythonObj from_file to_folder output = let
-    py_fname = from_file <.> "py"
-    py_fpath = to_folder </> py_fname
-    py_contents = T.pack $ foldl (\acc x -> acc ++ "\n\n" ++ (show x)) "" $ objs output
-    init_fpath = to_folder </> "__init__.py"
-    init_contents = "from ." <> (T.pack from_file) <> " import " <> (binding_name output)
-    in do
-        createDirectoryIfMissing False to_folder
-        TIO.writeFile py_fpath py_contents
-        TIO.writeFile init_fpath init_contents
 

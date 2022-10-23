@@ -2,6 +2,7 @@ name: dhall-to-python-package
 
 dependencies:
   - base == 4.*
+  - casing == 0.1.4.1
   - containers == 0.6.6
   - dhall == 1.41.2
   - filepath
