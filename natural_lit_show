@@ -1,0 +1,51 @@
+Up to date
+Let (
+    Binding {
+        bindingSrc0 = Nothing
+        , variable = "n"
+        , bindingSrc1 = Nothing
+        , annotation = Nothing
+        , bindingSrc2 = Nothing
+        , value = Annot (
+            NaturalLit 1
+        )
+        Natural
+    }
+    
+)
+(
+    Let (
+        Binding {
+            bindingSrc0 = Nothing
+            , variable = "ToModule"
+            , bindingSrc1 = Nothing
+            , annotation = Nothing
+            , bindingSrc2 = Nothing
+            , value = RecordLit (
+                fromList [(
+                    "n"
+                    ,RecordField {
+                        recordFieldSrc0 = Nothing
+                        , recordFieldValue = Var (
+                            V "n" 0
+                        )
+                        
+                        , recordFieldSrc1 = Nothing
+                        , recordFieldSrc2 = Nothing
+                    }
+                    
+                )
+                ]
+            )
+            
+        }
+        
+    )
+    (
+        Var (
+            V "ToModule" 0
+        )
+        
+    )
+    
+)
