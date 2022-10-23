@@ -1,6 +1,8 @@
-let n = 1 : Natural
+let x = 1 : Natural
+let y = 2 : Natural
 
 let ToModule = {
-    n
+    x
+    , y
 } in ToModule
 

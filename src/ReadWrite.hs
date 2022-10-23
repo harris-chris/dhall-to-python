@@ -1,6 +1,7 @@
 module ReadWrite where
 
 import Control.Monad (join)
+import Data.Maybe ( fromMaybe )
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import System.Directory (createDirectoryIfMissing)
@@ -10,29 +11,35 @@ import qualified Data.Text
 
 import Dhall.Parser( exprFromText, ParseError )
 
-import ParsedPackage
+import ExprConversion
+
+data FileParseError = DhallError ParseError | PythonObjNotFound
 
 dhallFileToPythonPackage :: FilePath -> FilePath -> IO ()
 dhallFileToPythonPackage from_file to_folder = let
     basename = takeBaseName from_file
     in do
-        parsedE <- dhallFileToParsedPackage from_file
+        parsedE <- dhallFileToPythonObj from_file
         case parsedE of
              Left err -> printErr err
-             Right parsed -> writeParsedPackage basename to_folder parsed
+             Right parsed -> writePythonObj basename to_folder parsed
 
-printErr :: ParseError -> IO ()
+printErr :: FileParseError -> IO ()
 printErr err = undefined
 
-dhallFileToParsedPackage :: FilePath -> IO (Either ParseError ParsedPackage)
-dhallFileToParsedPackage from_file = do
+dhallFileToPythonObj :: FilePath -> IO (Either FileParseError PythonObj)
+dhallFileToPythonObj from_file = do
     contents <- TIO.readFile from_file
     let exprE = exprFromText from_file contents
-        parsedE = exprToParsedPackage <$> exprE
-        in return parsedE
+    let objE = convert <$> exprE
+    case objE of
+        Left err -> return $ Left $ DhallError err
+        Right objO -> return $ fromMaybe (Left PythonObjNotFound) objO
+    --     parsedE = dhallExprToPythonObj <$> exprE
+    --     in return parsedE
 
-writeParsedPackage :: FilePath -> FilePath -> ParsedPackage -> IO ()
-writeParsedPackage from_file to_folder output = let
+writePythonObj :: FilePath -> FilePath -> PythonObj -> IO ()
+writePythonObj from_file to_folder output = let
     py_fname = from_file <.> "py"
     py_fpath = to_folder </> py_fname
     py_contents = T.pack $ foldl (\acc x -> acc ++ "\n\n" ++ (show x)) "" $ objs output

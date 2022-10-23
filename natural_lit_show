@@ -2,14 +2,35 @@ Up to date
 Let (
     Binding {
         bindingSrc0 = Nothing
-        , variable = "n"
+        , variable = "ToDataclass"
         , bindingSrc1 = Nothing
         , annotation = Nothing
         , bindingSrc2 = Nothing
-        , value = Annot (
-            NaturalLit 1
+        , value = Record (
+            fromList [(
+                "var_nat"
+                ,RecordField {
+                    recordFieldSrc0 = Nothing
+                    , recordFieldValue = Natural
+                    , recordFieldSrc1 = Nothing
+                    , recordFieldSrc2 = Nothing
+                }
+                
+            )
+            
+            ,(
+                "var_dbl"
+                ,RecordField {
+                    recordFieldSrc0 = Nothing
+                    , recordFieldValue = Double
+                    , recordFieldSrc1 = Nothing
+                    , recordFieldSrc2 = Nothing
+                }
+                
+            )
+            ]
         )
-        Natural
+        
     }
     
 )
@@ -23,11 +44,11 @@ Let (
             , bindingSrc2 = Nothing
             , value = RecordLit (
                 fromList [(
-                    "n"
+                    "ToDataclass"
                     ,RecordField {
                         recordFieldSrc0 = Nothing
                         , recordFieldValue = Var (
-                            V "n" 0
+                            V "ToDataclass" 0
                         )
                         
                         , recordFieldSrc1 = Nothing
