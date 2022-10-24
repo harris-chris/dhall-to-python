@@ -24,27 +24,6 @@ targetOutputFolder = "test/test_files/target_output_files"
 
 main :: IO ()
 main = hspec $ do
-    describe "Parse basic dhall expressions" $ do
-        it "parses a natural number to a dhall Natural" $ do
-            let expected = NaturalLit 21 :: Expr Src Import
-            let actual = exprFromText "Simple Natural" "21" :: Either ParseError (Expr Src Import)
-            case actual of
-                Left err -> assertFailure "Could not parse"
-                Right ( Note _ val ) -> val `shouldBe` expected
-                Right _ -> assertFailure "Expected not actual"
-
-        it "parses a record type to a dataclass" $ do
-            let field_nat = makeRecordField Natural
-            let field_dbl = makeRecordField Double
-            let orig_map = DhallMap.fromList
-                            [("nat_val", field_nat), ("dbl_val", field_dbl)]
-            let orig = Record orig_map
-            let expected = PyType $ Dataclass "ToDataclass" $ DhallMap.fromList
-                            [("nat_val", PyType PythonIntType),
-                              ("dbl_val", PyType PythonFloatType)]
-            let actual = convert orig
-            actual `shouldBe` expected
-
     describe "Parses dhall files" $ do
         it "Parses natural.dhall" $ do
             let fpath = testSourceFolder </> "natural.dhall" :: FilePath

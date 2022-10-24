@@ -25,7 +25,8 @@ dhallFileToPythonPackage from_file toFolder = let
              Right parsed -> writePythonObj basename 0 parsed
 
 printErr :: FileParseError -> IO ()
-printErr err = undefined
+printErr (DhallError err) = print "Dhall file failed to parse"
+printErr PythonObjNotFound = print "No valid python object found"
 
 dhallFileToPythonObj :: FilePath -> IO (Either FileParseError PythonObj)
 dhallFileToPythonObj from_file = do

@@ -68,7 +68,6 @@ instance Converts (Expr s a) where
     convert cs (Lam _ _ _) = error "lam"
     convert cs (Pi _ _ _ _) = error "pi"
     convert cs (App _ _) = error "app"
-    convert cs (Let _ _) = error "let"
     convert cs (Let binding expr) = case expr of
         (Let (Binding _ name _ _ _ _) (RecordLit map)) ->
             toPackage cs name map
