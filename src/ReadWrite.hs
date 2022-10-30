@@ -9,6 +9,7 @@ import System.FilePath ( (</>), (<.>), takeBaseName )
 import System.FilePath.Posix (takeDirectory)
 import qualified Data.Text
 
+import Dhall.Core( denote )
 import Dhall.Parser( exprFromText, ParseError )
 
 import ExprConversion
@@ -30,11 +31,12 @@ dhallFileToPythonPackageObj :: FilePath -> IO (Either FileParseError PythonObj)
 dhallFileToPythonPackageObj fromFile = do
     contents <- TIO.readFile fromFile
     let exprE = exprFromText fromFile contents
-    let cs = ConvertState []
-    let objE = convert cs <$> exprE
+    let exprE' = denote <$> exprE
+    let cs = newConvertState
+    let objE = convert cs <$> exprE'
     case objE of
         Left err -> return $ Left $ DhallError err
-        Right (ConvertState objs) -> case objs of
+        Right (ConvertState d objs) -> case objs of
             [pkg] -> return (Right pkg)
             _ -> return (Left PythonObjNotFound)
             -- then return (Right (fromJust objO))

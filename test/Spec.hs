@@ -43,7 +43,7 @@ checkTempOutputAgainstTarget fPath = do
         targetFolderContents <- listDirectory targetFPath
         let contentsPlusThis = (</>) fPath <$> targetFolderContents
         let contentsRel = makeRelative targetOutputFolder <$> contentsPlusThis
-        foldl (\acc x -> acc >> (checkTempOutputAgainstTarget x)) (return ()) contentsRel
+        foldl (\io x -> io >> (checkTempOutputAgainstTarget x)) (return ()) contentsRel
 
 checkFilesMatch :: FilePath -> FilePath -> IO ()
 checkFilesMatch fileA fileB = do
