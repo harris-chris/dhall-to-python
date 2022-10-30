@@ -13,8 +13,8 @@ import Dhall.Src
 import qualified Data.Text
 import qualified Data.Text.IO as TIO
 import Text.Megaparsec (SourcePos(..), mkPos)
-import System.FilePath ((</>))
-import System.Directory (listDirectory, removeDirectoryRecursive)
+import System.FilePath ((</>), (<.>), makeRelative)
+import System.Directory (listDirectory, removeDirectoryRecursive, doesFileExist)
 
 testSourceFolder :: FilePath
 testSourceFolder = "test/test_files/test_source_files"
@@ -26,11 +26,34 @@ targetOutputFolder :: FilePath
 targetOutputFolder = "test/test_files/target_output_files"
 
 clearTempOutputFolder :: IO ()
-clearTempOutputFolder = let
-    tempContents = listDirectory tempOutputFolder
-    in do
-        removeList <- tempContents
-        foldl (\acc x -> acc >> (removeDirectoryRecursive x)) (return ()) removeList
+clearTempOutputFolder = do
+    removeList <- listDirectory tempOutputFolder
+    foldl (\acc x ->
+        acc >> (removeDirectoryRecursive $ tempOutputFolder </> x)
+        ) (return ()) removeList
+
+checkTempOutputAgainstTarget :: FilePath -> IO ()
+checkTempOutputAgainstTarget fPath = do
+    let targetFPath = targetOutputFolder </> fPath
+    let tempFPath = tempOutputFolder </> fPath
+    isFile <- doesFileExist targetFPath
+    if isFile then
+        checkFilesMatch targetFPath tempFPath
+    else do
+        targetFolderContents <- listDirectory targetFPath
+        let contentsPlusThis = (</>) fPath <$> targetFolderContents
+        let contentsRel = makeRelative targetOutputFolder <$> contentsPlusThis
+        foldl (\acc x -> acc >> (checkTempOutputAgainstTarget x)) (return ()) contentsRel
+
+checkFilesMatch :: FilePath -> FilePath -> IO ()
+checkFilesMatch fileA fileB = do
+    isFileA <- doesFileExist fileA
+    isFileA `shouldBe` True
+    isFileB <- doesFileExist fileB
+    isFileB `shouldBe` True
+    fileAContents <- TIO.readFile fileA
+    fileBContents <- TIO.readFile fileB
+    fileAContents `shouldBe` fileBContents
 
 main :: IO ()
 main = hspec $ beforeAll clearTempOutputFolder $ do
@@ -69,6 +92,8 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
 
     describe "Convert dhall file to python file" $ do
         it "converts dataclass_only_module.dhall" $ do
-            let source = testSourceFolder </> "dataclass_only_module.dhall"
-            dhallFileToPythonPackage source $ tempOutputFolder </> "dataclass_only_module"
+            let object_name = "dataclass_only_package"
+            let source = testSourceFolder </> object_name <.> "dhall"
+            dhallFileToPythonPackage source $ tempOutputFolder </> object_name
+            checkTempOutputAgainstTarget object_name
 

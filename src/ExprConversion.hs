@@ -11,7 +11,7 @@ import Dhall.Map as DhallMap
 import Dhall.Parser ( Src )
 import System.Directory ( createDirectoryIfMissing )
 import System.FilePath ( (</>), (<.>), takeBaseName )
-import Text.Casing ( snake )
+import Text.Casing ( quietSnake )
 
 class Converts a where
     convert :: ConvertState -> a -> ConvertState
@@ -29,10 +29,11 @@ data PythonObj =
 
 writePythonObj :: FilePath -> Int -> PythonObj -> IO ()
 writePythonObj baseFolder indent (PythonPackage name objs) = let
-    pyFname = snake (T.unpack name) <.> "py"
+    snakeName = quietSnake (T.unpack name)
+    pyFname = snakeName <.> "py"
     pyFpath = baseFolder </> pyFname
     initFpath = baseFolder </> "__init__.py"
-    initContents = "from ." <> name <> " import " <> name
+    initContents = T.pack $ "from ." <> snakeName <> " import " <> snakeName
     in do
         createDirectoryIfMissing False baseFolder
         TIO.writeFile initFpath initContents
