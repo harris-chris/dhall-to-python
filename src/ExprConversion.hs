@@ -13,21 +13,16 @@ import System.Directory ( createDirectoryIfMissing )
 import System.FilePath ( (</>), (<.>), takeBaseName )
 import Text.Casing ( snake )
 
-dhallExprToPythonObj :: Expr s a -> Maybe PythonObj
-dhallExprToPythonObj expr = let
-    (cs, obj) = (convert (ConvertState [])) . denote $ expr
-    in obj
-
 class Converts a where
-    convert :: ConvertState -> a -> (ConvertState, Maybe PythonObj)
+    convert :: ConvertState -> a -> ConvertState
 
 data ConvertState = ConvertState {
     objs :: [PythonObj]
 }
 
 data PythonObj =
-    PythonIntType
-    | PythonFloatType
+    PythonIntTypeSpec Text
+    | PythonFloatTypeSpec Text
     | PythonDataclass T.Text [PythonObj]
     | PythonPackage T.Text [PythonObj]
     deriving Eq
@@ -64,16 +59,27 @@ writePythonObj toFile indent (PythonDataclass name objs) = let
 
 instance Converts (Expr s a) where
     convert cs (Const _) = error "const"
-    convert cs (Var _) = error "var"
+    convert cs (Var _) = cs
     convert cs (Lam _ _ _) = error "lam"
     convert cs (Pi _ _ _ _) = error "pi"
     convert cs (App _ _) = error "app"
-    convert cs (Let binding expr) = case expr of
-        (Let (Binding _ name _ _ _ _) (RecordLit map)) ->
-            toPackage cs name map
-        (Let (Binding _ name _ _ _ _) (Record map)) ->
-            toDataclass cs name map
-        _ -> (cs, Nothing)
+    convert cs (Let (Binding _ name _ _ _ (RecordLit map)) e) = let
+            cs' = addPackage cs name map
+            in convert cs' e
+    convert cs (Let (Binding _ name _ _ _ (Record map)) e) = let
+            cs' = addDataclass cs name map
+            in convert cs' e
+    convert (ConvertState objs) (Let (Binding _ name _ _ _ (Natural)) e) = let
+            objs' = (PythonIntTypeSpec name):objs
+            cs' = ConvertState objs'
+            in convert cs' e
+    convert (ConvertState objs) (Let (Binding _ name _ _ _ (Double)) e) = let
+            objs' = (PythonFloatTypeSpec name):objs
+            cs' = ConvertState objs'
+            in convert cs' e
+    convert (ConvertState objs) (Let (Binding _ name _ _ _ _) e) = let
+            pkg = PythonPackage name objs
+            in ConvertState [pkg]
     convert cs (Annot _ _) = error "annot"
     convert cs Bool = error "bool"
     convert cs (BoolLit _) = error "boollit"
@@ -82,7 +88,7 @@ instance Converts (Expr s a) where
     convert cs (BoolEQ _ _) = error "booleq"
     convert cs (BoolNE _ _) = error "boolne"
     convert cs (BoolIf _ _ _) = error "boolif"
-    convert cs Natural = (cs, Just $ PythonIntType)
+    convert cs Natural = error "natural"
     convert cs (NaturalLit nat) = error "natural lit"
     convert cs NaturalFold = error "naturalfold"
     convert cs NaturalBuild = error "naturalbuild"
@@ -100,7 +106,7 @@ instance Converts (Expr s a) where
     convert cs IntegerNegate = error "integer negate"
     convert cs IntegerShow = error "integer show"
     convert cs IntegerToDouble = error "integer to double"
-    convert cs Double = (cs, Just $ PythonFloatType)
+    convert cs Double = error "double" -- (cs, Just $ PythonFloatType)
     convert cs (DoubleLit _) = error "double lit"
     convert cs DoubleShow = error "double show"
     convert cs Text = error "text"
@@ -152,9 +158,9 @@ instance Converts (Expr s a) where
 
 -- toDataclass :: T.Text -> (DhallMap.Map T.Text (RecordField s a)) -> PythonObj
 -- toDataclass name map = PyType $ Dataclass name $ convert <$> map
-toDataclass :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> (ConvertState, Maybe PythonObj)
-toDataclass cs txt map = undefined
+addDataclass :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> ConvertState
+addDataclass cs txt map = undefined
 
-toPackage :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> (ConvertState, Maybe PythonObj)
-toPackage cs txt map = undefined
+addPackage :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> ConvertState
+addPackage cs txt map = undefined
 

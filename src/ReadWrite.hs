@@ -19,7 +19,7 @@ dhallFileToPythonPackage :: FilePath -> FilePath -> IO ()
 dhallFileToPythonPackage from_file toFolder = let
     basename = takeBaseName from_file
     in do
-        parsedE <- dhallFileToPythonObj from_file
+        parsedE <- dhallFileToPythonPackageObj from_file
         case parsedE of
              Left err -> printErr err
              Right parsed -> writePythonObj basename 0 parsed
@@ -28,15 +28,17 @@ printErr :: FileParseError -> IO ()
 printErr (DhallError err) = print "Dhall file failed to parse"
 printErr PythonObjNotFound = print "No valid python object found"
 
-dhallFileToPythonObj :: FilePath -> IO (Either FileParseError PythonObj)
-dhallFileToPythonObj from_file = do
+dhallFileToPythonPackageObj :: FilePath -> IO (Either FileParseError PythonObj)
+dhallFileToPythonPackageObj from_file = do
     contents <- TIO.readFile from_file
     let exprE = exprFromText from_file contents
     let cs = ConvertState []
     let objE = convert cs <$> exprE
     case objE of
         Left err -> return $ Left $ DhallError err
-        Right (_, objO) -> if isJust objO
-            then return (Right (fromJust objO))
-            else return (Left PythonObjNotFound)
+        Right (ConvertState objs) -> case objs of
+            [pkg] -> return (Right pkg)
+            _ -> return (Left PythonObjNotFound)
+            -- then return (Right (fromJust objO))
+            -- else return (Left PythonObjNotFound)
 

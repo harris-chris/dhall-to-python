@@ -1,6 +1,8 @@
+import Control.Monad (join)
+
 import Test.Hspec
 import Test.HUnit.Lang (assertFailure)
-import Data.Map as Map
+import qualified Data.Map as Map
 import Debug.Trace (traceShowId)
 import ExprConversion
 import ReadWrite
@@ -12,6 +14,7 @@ import qualified Data.Text
 import qualified Data.Text.IO as TIO
 import Text.Megaparsec (SourcePos(..), mkPos)
 import System.FilePath ((</>))
+import System.Directory (listDirectory, removeDirectoryRecursive)
 
 testSourceFolder :: FilePath
 testSourceFolder = "test/test_files/test_source_files"
@@ -22,8 +25,15 @@ tempOutputFolder = "test/test_files/temp_output_files"
 targetOutputFolder :: FilePath
 targetOutputFolder = "test/test_files/target_output_files"
 
+clearTempOutputFolder :: IO ()
+clearTempOutputFolder = let
+    tempContents = listDirectory tempOutputFolder
+    in do
+        removeList <- tempContents
+        foldl (\acc x -> acc >> (removeDirectoryRecursive x)) (return ()) removeList
+
 main :: IO ()
-main = hspec $ do
+main = hspec $ beforeAll clearTempOutputFolder $ do
     describe "Parses dhall files" $ do
         it "Parses natural.dhall" $ do
             let fpath = testSourceFolder </> "natural.dhall" :: FilePath
@@ -61,3 +71,4 @@ main = hspec $ do
         it "converts dataclass_only_module.dhall" $ do
             let source = testSourceFolder </> "dataclass_only_module.dhall"
             dhallFileToPythonPackage source $ tempOutputFolder </> "dataclass_only_module"
+

@@ -3,6 +3,6 @@ let ToDataclass = {
     , var_dbl : Double
 }
 
-let ToModule = {
+let ToPackage = {
     ToDataclass
-} in ToModule
+} in ToPackage
