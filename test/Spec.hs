@@ -10,7 +10,7 @@ import Dhall.Core
 import Dhall.Map as DhallMap
 import Dhall.Parser
 import Dhall.Src
-import qualified Data.Text
+import Data.Text (strip)
 import qualified Data.Text.IO as TIO
 import Text.Megaparsec (SourcePos(..), mkPos)
 import System.FilePath ((</>), (<.>), makeRelative)
@@ -38,7 +38,7 @@ checkTempOutputAgainstTarget fPath = do
     let tempFPath = tempOutputFolder </> fPath
     isFile <- doesFileExist targetFPath
     if isFile then
-        checkFilesMatch targetFPath tempFPath
+        checkFilesMatch tempFPath targetFPath
     else do
         targetFolderContents <- listDirectory targetFPath
         let contentsPlusThis = (</>) fPath <$> targetFolderContents
@@ -46,14 +46,14 @@ checkTempOutputAgainstTarget fPath = do
         foldl (\io x -> io >> (checkTempOutputAgainstTarget x)) (return ()) contentsRel
 
 checkFilesMatch :: FilePath -> FilePath -> IO ()
-checkFilesMatch fileA fileB = do
-    isFileA <- doesFileExist fileA
+checkFilesMatch actual expected = do
+    isFileA <- doesFileExist actual
     isFileA `shouldBe` True
-    isFileB <- doesFileExist fileB
+    isFileB <- doesFileExist expected
     isFileB `shouldBe` True
-    fileAContents <- TIO.readFile fileA
-    fileBContents <- TIO.readFile fileB
-    fileAContents `shouldBe` fileBContents
+    actualContents <- TIO.readFile actual
+    expectedContents <- TIO.readFile expected
+    (strip actualContents) `shouldBe` (strip expectedContents)
 
 main :: IO ()
 main = hspec $ beforeAll clearTempOutputFolder $ do

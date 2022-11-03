@@ -4,6 +4,7 @@ import Control.Monad (join)
 import Data.Maybe ( fromJust, isJust )
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Debug.Trace ( trace, traceShowId )
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ( (</>), (<.>), takeBaseName )
 import System.FilePath.Posix (takeDirectory)

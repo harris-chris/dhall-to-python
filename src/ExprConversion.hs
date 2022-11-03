@@ -32,8 +32,8 @@ data PythonObj =
 
 writePythonObj :: FilePath -> Int -> PythonObj -> IO ()
 writePythonObj baseFolder indent (PythonPackage name objs) = let
-    snakeName = quietSnake (T.unpack name)
-    pyFname = snakeName <.> "py"
+    snakeName = quietSnake (T.unpack (trace ("pkg name is " ++ T.unpack name) name))
+    pyFname = (trace ("snakename is " ++ snakeName) snakeName) <.> "py"
     pyFpath = baseFolder </> pyFname
     initFpath = baseFolder </> "__init__.py"
     initContents = T.pack $ "from ." <> snakeName <> " import " <> snakeName
@@ -49,6 +49,21 @@ writePythonObj toFile indent (PythonDataclass name objs) = let
     in do
         TIO.writeFile toFile writeStr
         foldl (\io x -> io >> writePythonObj toFile (indent + 1) x) (return ()) objs
+
+writePythonObj toFile indent (PythonIntTypeSpec name) = let
+    writeStr = getIndent indent <> name <> ": int"
+    in TIO.writeFile toFile writeStr
+
+writePythonObj toFile indent (PythonFloatTypeSpec name) = let
+    writeStr = getIndent indent <> name <> ": float"
+    in TIO.writeFile toFile writeStr
+
+getIndent :: Int -> Text
+getIndent x = T.pack $ getIndent' x ""
+
+getIndent' :: Int -> String -> String
+getIndent' 0 acc = acc
+getIndent' x acc = getIndent' (x - 1) ("    " ++ acc)
 
 -- instance Show PythonObj where
 --     show PythonIntType = "int"
@@ -71,11 +86,11 @@ instance Converts (Expr s a) where
     convert cs (Pi _ _ _ _) = error "pi"
     convert cs (App _ _) = error "app"
     convert (ConvertState d objs) (Let (Binding _ name _ _ _ (Natural)) e) = let
-            objs' = trace "Traced Natural" (PythonIntTypeSpec (traceShowId name)):objs
+            objs' = PythonIntTypeSpec (traceShowId name):objs
             cs' = ConvertState d objs'
             in convert cs' e
     convert (ConvertState d objs) (Let (Binding _ name _ _ _ (Double)) e) = let
-            objs' = trace "Traced Double" (PythonFloatTypeSpec (traceShowId name)):objs
+            objs' = PythonFloatTypeSpec (traceShowId name):objs
             cs' = ConvertState d objs'
             in convert cs' e
     -- convert (ConvertState objs) (Let (Binding _ name _ _ _ (Var v)) e) = error
@@ -87,7 +102,7 @@ instance Converts (Expr s a) where
     --         _ = traceShowId $ typeOf v
     --         in error $ T.unpack name
     convert cs (Let (Binding _ name _ _ _ (Record m)) e) = let
-        cs' = addDataclass cs (traceShowId name) m
+        cs' = addDataclass cs name m
         in convert cs' e
     convert cs (Let (Binding _ name _ _ _ (RecordLit m)) e) = let
         cs' = addPackage cs name m
@@ -180,5 +195,5 @@ getMapField name (RecordField _ Natural _ _) = PythonIntTypeSpec name
 getMapField name (RecordField _ Double _ _) = PythonFloatTypeSpec name
 
 addPackage :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> ConvertState
-addPackage cs txt map = undefined
+addPackage (ConvertState i objs) name map = ConvertState i [PythonPackage name objs]
 
