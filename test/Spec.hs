@@ -95,8 +95,8 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
                 Right _ -> assertFailure "Parsed expression was not expected"
 
     describe "Convert dhall file to python file" $ do
-        it "converts dataclass_only_module.dhall" $ do
-            let object_name = "dataclass_only_package"
+        it "converts simple_dataclass.dhall" $ do
+            let object_name = "simple_dataclass"
             let source = testSourceFolder </> object_name <.> "dhall"
             let pyOpts = defaultPythonOptions
             dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
