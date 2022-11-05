@@ -4,6 +4,7 @@ import Debug.Trace ( trace, traceShowId )
 import Data.Text ( Text )
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Data.Maybe ( catMaybes )
 import Data.Typeable ( typeOf )
 import Data.Void ( Void )
 import Dhall.Core ( Binding(..), Expr(..), RecordField(..), denote )
@@ -12,6 +13,32 @@ import Dhall.Parser ( Src )
 import System.Directory ( createDirectoryIfMissing )
 import System.FilePath ( (</>), (<.>), takeBaseName )
 import Text.Casing ( quietSnake )
+
+data DataclassOptions = DataclassOptions {
+    frozen :: Bool
+    , eq :: Bool
+}
+
+getDataclassParameters :: DataclassOptions -> Text
+getDataclassParameters opts = let
+    argsO = [
+        if (frozen opts) then Just "frozen=True" else Nothing
+        , if (eq opts) then Just "eq=True" else Nothing
+        ]
+    args = catMaybes argsO
+    in if length args == 0
+        then ""
+        else "(" <> (T.intercalate ", " args) <> ")"
+
+defaultDataclassOptions :: DataclassOptions
+defaultDataclassOptions = DataclassOptions True True
+
+data PythonOptions = PythonOptions {
+    dataclassOptions :: DataclassOptions
+}
+
+defaultPythonOptions :: PythonOptions
+defaultPythonOptions = PythonOptions defaultDataclassOptions
 
 class Converts a where
     convert :: ConvertState -> a -> ConvertState
@@ -30,8 +57,8 @@ data PythonObj =
     | PythonPackage T.Text [PythonObj]
     deriving (Eq, Show)
 
-writePythonObj :: FilePath -> Int -> PythonObj -> IO ()
-writePythonObj baseFolder indent (PythonPackage name objs) = let
+writePythonObj :: PythonOptions -> FilePath -> Int -> PythonObj -> IO ()
+writePythonObj pyOpts baseFolder indent (PythonPackage name objs) = let
     snakeName = quietSnake (T.unpack (trace ("pkg name is " ++ T.unpack name) name))
     pyFname = (trace ("snakename is " ++ snakeName) snakeName) <.> "py"
     pyFpath = baseFolder </> pyFname
@@ -42,21 +69,25 @@ writePythonObj baseFolder indent (PythonPackage name objs) = let
         createDirectoryIfMissing False baseFolder
         TIO.writeFile initFpath initContents
         TIO.writeFile pyFpath pyHeader
-        foldl (\io x -> io >> writePythonObj pyFpath indent x) (return ()) objs
+        foldl (\io x -> io >> writePythonObj pyOpts pyFpath indent x) (return ()) objs
 
-writePythonObj toFile indent (PythonDataclass name objs) = let
+writePythonObj pyOpts toFile indent (PythonDataclass name objs) = let
+    dataclassParams = getDataclassParameters $ dataclassOptions pyOpts
     writeStr =
-        "@dataclass(frozen=True, eq=True)\n" <>
+        "@dataclass" <> dataclassParams <> "\n" <>
         "class " <> name <> ":\n"
     in do
         TIO.appendFile toFile (trace ("writing " ++ T.unpack writeStr) writeStr)
-        foldl (\io x -> io >> writePythonObj toFile (indent + 1) x) (return ()) objs
+        foldl
+            (\io x -> io >> writePythonObj pyOpts toFile (indent + 1) x)
+            (return ())
+            objs
 
-writePythonObj toFile indent (PythonIntTypeSpec name) = let
+writePythonObj pyOpts toFile indent (PythonIntTypeSpec name) = let
     writeStr = getIndent indent <> name <> ": int\n"
     in TIO.appendFile toFile writeStr
 
-writePythonObj toFile indent (PythonFloatTypeSpec name) = let
+writePythonObj pyOpts toFile indent (PythonFloatTypeSpec name) = let
     writeStr = getIndent indent <> name <> ": float\n"
     in TIO.appendFile toFile writeStr
 

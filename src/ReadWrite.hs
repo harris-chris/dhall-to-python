@@ -17,12 +17,12 @@ import ExprConversion
 
 data FileParseError = DhallError ParseError | PythonObjNotFound
 
-dhallFileToPythonPackage :: FilePath -> FilePath -> IO ()
-dhallFileToPythonPackage fromFile toFolder = do
+dhallFileToPythonPackage :: PythonOptions -> FilePath -> FilePath -> IO ()
+dhallFileToPythonPackage pyOpts fromFile toFolder = do
     parsedE <- dhallFileToPythonPackageObj fromFile
     case parsedE of
          Left err -> printErr err
-         Right parsed -> writePythonObj toFolder 0 parsed
+         Right parsed -> writePythonObj pyOpts toFolder 0 parsed
 
 printErr :: FileParseError -> IO ()
 printErr (DhallError err) = print "Dhall file failed to parse"

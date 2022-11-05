@@ -98,6 +98,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
         it "converts dataclass_only_module.dhall" $ do
             let object_name = "dataclass_only_package"
             let source = testSourceFolder </> object_name <.> "dhall"
-            dhallFileToPythonPackage source $ tempOutputFolder </> object_name
+            let pyOpts = defaultPythonOptions
+            dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
             checkTempOutputAgainstTarget object_name
 
