@@ -1,5 +1,5 @@
 import Control.Monad (join)
-
+import Control.Exception (IOException, try)
 import Test.Hspec
 import Test.HUnit.Lang (assertFailure)
 import qualified Data.Map as Map
@@ -10,7 +10,7 @@ import Dhall.Core
 import Dhall.Map as DhallMap
 import Dhall.Parser
 import Dhall.Src
-import Data.Text (strip)
+import Data.Text (Text, strip)
 import qualified Data.Text.IO as TIO
 import Text.Megaparsec (SourcePos(..), mkPos)
 import System.FilePath ((</>), (<.>), makeRelative)
@@ -47,13 +47,17 @@ checkTempOutputAgainstTarget fPath = do
 
 checkFilesMatch :: FilePath -> FilePath -> IO ()
 checkFilesMatch actual expected = do
-    isFileA <- doesFileExist actual
-    isFileA `shouldBe` True
-    isFileB <- doesFileExist expected
-    isFileB `shouldBe` True
-    actualContents <- TIO.readFile actual
-    expectedContents <- TIO.readFile expected
-    (strip actualContents) `shouldBe` (strip expectedContents)
+    -- isFileA <- doesFileExist actual
+    -- isFileA `shouldBe` True
+    -- isFileB <- doesFileExist expected
+    -- isFileB `shouldBe` True
+    actualContentsE <- try (TIO.readFile actual) :: IO (Either IOException Text)
+    case actualContentsE of
+        Left _ -> do
+            assertFailure $ "Cannot open file " ++ actual
+        Right actualContents -> do
+            expectedContents <- TIO.readFile expected
+            (strip actualContents) `shouldBe` (strip expectedContents)
 
 main :: IO ()
 main = hspec $ beforeAll clearTempOutputFolder $ do
