@@ -37,9 +37,11 @@ writePythonObj baseFolder indent (PythonPackage name objs) = let
     pyFpath = baseFolder </> pyFname
     initFpath = baseFolder </> "__init__.py"
     initContents = T.pack $ "from ." <> snakeName <> " import " <> snakeName
+    pyHeader = "from dataclasses import dataclass\n\n"
     in do
         createDirectoryIfMissing False baseFolder
         TIO.writeFile initFpath initContents
+        TIO.writeFile pyFpath pyHeader
         foldl (\io x -> io >> writePythonObj pyFpath indent x) (return ()) objs
 
 writePythonObj toFile indent (PythonDataclass name objs) = let
@@ -47,16 +49,16 @@ writePythonObj toFile indent (PythonDataclass name objs) = let
         "@dataclass(frozen=True, eq=True)\n" <>
         "class " <> name <> ":\n"
     in do
-        TIO.writeFile toFile writeStr
+        TIO.appendFile toFile (trace ("writing " ++ T.unpack writeStr) writeStr)
         foldl (\io x -> io >> writePythonObj toFile (indent + 1) x) (return ()) objs
 
 writePythonObj toFile indent (PythonIntTypeSpec name) = let
-    writeStr = getIndent indent <> name <> ": int"
-    in TIO.writeFile toFile writeStr
+    writeStr = getIndent indent <> name <> ": int\n"
+    in TIO.appendFile toFile writeStr
 
 writePythonObj toFile indent (PythonFloatTypeSpec name) = let
-    writeStr = getIndent indent <> name <> ": float"
-    in TIO.writeFile toFile writeStr
+    writeStr = getIndent indent <> name <> ": float\n"
+    in TIO.appendFile toFile writeStr
 
 getIndent :: Int -> Text
 getIndent x = T.pack $ getIndent' x ""
@@ -102,7 +104,7 @@ instance Converts (Expr s a) where
     --         _ = traceShowId $ typeOf v
     --         in error $ T.unpack name
     convert cs (Let (Binding _ name _ _ _ (Record m)) e) = let
-        cs' = addDataclass cs name m
+        cs' = addDataclass cs (trace ("adding dataclass" ++ T.unpack name) name) m
         in convert cs' e
     convert cs (Let (Binding _ name _ _ _ (RecordLit m)) e) = let
         cs' = addPackage cs name m
@@ -188,12 +190,14 @@ addDataclass :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> Conv
 addDataclass (ConvertState i objs) name map = let
     dcObjs = elems $ mapWithKey getMapField map
     dc = PythonDataclass name dcObjs
-    in ConvertState i (dc:objs)
+    in ConvertState i ((trace ("dataclass is " ++ show dc) dc):objs)
 
 getMapField :: T.Text -> RecordField s a -> PythonObj
 getMapField name (RecordField _ Natural _ _) = PythonIntTypeSpec name
 getMapField name (RecordField _ Double _ _) = PythonFloatTypeSpec name
 
 addPackage :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> ConvertState
-addPackage (ConvertState i objs) name map = ConvertState i [PythonPackage name objs]
+addPackage (ConvertState i objs) name map = let
+    pkg = PythonPackage name objs
+    in ConvertState i [(trace ("Package is " ++ show pkg) pkg)]
 
