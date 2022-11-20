@@ -1,13 +1,14 @@
 module ExprConversion where
 
 import Debug.Trace ( trace, traceShowId )
-import Data.Text ( Text )
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Maybe ( catMaybes )
 import Data.Typeable ( typeOf )
 import Data.Void ( Void )
 import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ), denote )
+import Dhall.Core ( Import(..), ImportHashed(..), ImportType(..), ImportMode(..) )
+import Dhall.Core ( FilePrefix(..), File(..) )
 import Dhall.Map as DhallMap
 import Dhall.Parser ( Src )
 import System.Directory ( createDirectoryIfMissing )
@@ -19,7 +20,7 @@ data DataclassOptions = DataclassOptions {
     , eq :: Bool
 }
 
-getDataclassParameters :: DataclassOptions -> Text
+getDataclassParameters :: DataclassOptions -> T.Text
 getDataclassParameters opts = let
     argsO = [
         if (frozen opts) then Just "frozen=True" else Nothing
@@ -50,15 +51,15 @@ data ConvertState = ConvertState {
 
 newConvertState = ConvertState False []
 
-type RecordKey = Text
+type AttributeName = T.Text
 
 data PythonObj =
-    PythonFloatTypeSpec RecordKey
-    | PythonIntTypeSpec RecordKey
-    | PythonStrTypeSpec RecordKey
-    | PythonUserDefinedTypeSpec RecordKey Text
-    | PythonDataclass RecordKey [PythonObj]
-    | PythonPackage RecordKey [PythonObj]
+    DataclassFloatAttribute AttributeName
+    | DataclassIntAttribute AttributeName
+    | DataclassStrAttribute AttributeName
+    | DataclassUserDefinedTypeAttribute AttributeName T.Text
+    | PythonDataclass AttributeName [PythonObj]
+    | PythonPackage AttributeName [PythonObj]
     deriving (Eq, Show)
 
 writePythonObj :: PythonOptions -> FilePath -> Int -> PythonObj -> IO ()
@@ -90,23 +91,23 @@ writePythonObj pyOpts toFile indent (PythonDataclass name objs) = let
             (return ())
             objs
 
-writePythonObj pyOpts toFile indent (PythonFloatTypeSpec name) = let
+writePythonObj pyOpts toFile indent (DataclassFloatAttribute name) = let
     writeStr = getIndent indent <> name <> ": float\n"
     in TIO.appendFile toFile writeStr
 
-writePythonObj pyOpts toFile indent (PythonIntTypeSpec name) = let
+writePythonObj pyOpts toFile indent (DataclassIntAttribute name) = let
     writeStr = getIndent indent <> name <> ": int\n"
     in TIO.appendFile toFile writeStr
 
-writePythonObj pyOpts toFile indent (PythonStrTypeSpec name) = let
+writePythonObj pyOpts toFile indent (DataclassStrAttribute name) = let
     writeStr = getIndent indent <> name <> ": str\n"
     in TIO.appendFile toFile writeStr
 
-writePythonObj pyOpts toFile indent (PythonUserDefinedTypeSpec key typeName) = let
+writePythonObj pyOpts toFile indent (DataclassUserDefinedTypeAttribute key typeName) = let
     writeStr = getIndent indent <> key <> ": " <> typeName <> "\n"
     in TIO.appendFile toFile writeStr
 
-getIndent :: Int -> Text
+getIndent :: Int -> T.Text
 getIndent x = T.pack $ getIndent' x ""
 
 getIndent' :: Int -> String -> String
@@ -133,14 +134,21 @@ instance Converts (Expr s a) where
     convert cs (Lam _ _ _) = error "lam"
     convert cs (Pi _ _ _ _) = error "pi"
     convert cs (App _ _) = error "app"
-    convert (ConvertState d objs) (Let (Binding _ name _ _ _ (Natural)) e) = let
-            objs' = PythonIntTypeSpec (traceShowId name):objs
+    convert cs (Let (Binding _ name _ _ _ (Record m)) e) = let
+        cs' = addDataclass cs (trace ("adding dataclass" ++ T.unpack name) name) m
+        in convert cs' e
+    convert cs (Let (Binding _ name _ _ _ (RecordLit m)) e) = let
+        cs' = addPackage cs name m
+        in convert cs' e
+    convert (ConvertState d objs) (Let (Binding _ name _ _ _ attr) e) = let
+            dcAttribute = getDataclassTypeAttribute name attr
+            objs' = dcAttribute:objs
             cs' = ConvertState d objs'
             in convert cs' e
-    convert (ConvertState d objs) (Let (Binding _ name _ _ _ (Double)) e) = let
-            objs' = PythonFloatTypeSpec (traceShowId name):objs
-            cs' = ConvertState d objs'
-            in convert cs' e
+    -- convert (ConvertState d objs) (Let (Binding _ name _ _ _ (Double)) e) = let
+    --         objs' = DataclassFloatAttribute (traceShowId name):objs
+    --         cs' = ConvertState d objs'
+    --         in convert cs' e
     -- convert (ConvertState objs) (Let (Binding _ name _ _ _ (Var v)) e) = error
     --     "it's a var"
     -- convert (ConvertState objs) (Let (Binding _ name _ _ _ (Record _)) e) = error
@@ -149,12 +157,14 @@ instance Converts (Expr s a) where
     --         _ = traceShowId name
     --         _ = traceShowId $ typeOf v
     --         in error $ T.unpack name
-    convert cs (Let (Binding _ name _ _ _ (Record m)) e) = let
-        cs' = addDataclass cs (trace ("adding dataclass" ++ T.unpack name) name) m
-        in convert cs' e
-    convert cs (Let (Binding _ name _ _ _ (RecordLit m)) e) = let
-        cs' = addPackage cs name m
-        in convert cs' e
+    -- convert cs (Embed (Import (ImportHashed _ (Local Here (File dir file))) Code)) = let
+    --     cs' = addPackage cs name m
+    --     in convert cs' e
+    -- convert cs (Embed imprt) =
+    --     cs' = addSubPackage imprt
+    --     error $ "Not implemented: dhall imports from URL"
+    convert cs (Embed _) =
+        error $ "Not implemented: dhall imports from URL"
     convert cs (Annot _ _) = error "annot"
     convert cs Bool = error "bool"
     convert cs (BoolLit _) = error "boollit"
@@ -233,10 +243,14 @@ addDataclass (ConvertState i objs) name map = let
     in ConvertState i ((trace ("dataclass is " ++ show dc) dc):objs)
 
 getMapField :: T.Text -> RecordField s a -> PythonObj
-getMapField name (RecordField _ (Var (V typeName _)) _ _) = PythonUserDefinedTypeSpec name typeName
-getMapField name (RecordField _ Text _ _) = PythonStrTypeSpec name
-getMapField name (RecordField _ Natural _ _) = PythonIntTypeSpec name
-getMapField name (RecordField _ Double _ _) = PythonFloatTypeSpec name
+getMapField name (RecordField _ attr _ _) = getDataclassTypeAttribute name attr
+
+getDataclassTypeAttribute :: T.Text -> Expr s a -> PythonObj
+getDataclassTypeAttribute name Natural = DataclassIntAttribute name
+getDataclassTypeAttribute name Double = DataclassFloatAttribute name
+getDataclassTypeAttribute name Text = DataclassStrAttribute name
+getDataclassTypeAttribute name (Var (V typeName _)) =
+    DataclassUserDefinedTypeAttribute name typeName
 
 addPackage :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> ConvertState
 addPackage (ConvertState i objs) name map = let

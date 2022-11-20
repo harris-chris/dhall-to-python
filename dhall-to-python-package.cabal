@@ -18,6 +18,7 @@ library
       src
   default-extensions:
       OverloadedStrings
+      ExistentialQuantification
   build-depends:
       base ==4.*
     , casing ==0.1.4.1
@@ -36,6 +37,7 @@ executable dhall-to-python
       Paths_dhall_to_python_package
   default-extensions:
       OverloadedStrings
+      ExistentialQuantification
   build-depends:
       base ==4.*
     , casing ==0.1.4.1
@@ -55,6 +57,7 @@ executable show-dhall-expr
       Paths_dhall_to_python_package
   default-extensions:
       OverloadedStrings
+      ExistentialQuantification
   build-depends:
       base ==4.*
     , casing ==0.1.4.1

@@ -1,7 +1,7 @@
-let SimpleDataclass = ./dataclass_only_package.dhall
+let SimpleDataclass = ./simple_dataclass.dhall
 
 let DataclassWithImport = {
-    simple_data_class : SimpleDataclass.SimpleDataclass
+    simple_dataclass : SimpleDataclass.SimpleDataclass
 }
 
 let DataclassWithImport = {

@@ -14,20 +14,26 @@ dependencies:
 library:
   source-dirs: src
   exposed-modules: ReadWrite
-  default-extensions:	OverloadedStrings
+  default-extensions:
+    - OverloadedStrings
+    - ExistentialQuantification
 
 executables:
   dhall-to-python:
     main: Main.hs
     dependencies:
       - dhall-to-python-package
-    default-extensions:	OverloadedStrings
+    default-extensions:
+      - OverloadedStrings
+      - ExistentialQuantification
 
   show-dhall-expr:
     main: ShowDhallExpr.hs
     dependencies:
       - dhall-to-python-package
-    default-extensions:	OverloadedStrings
+    default-extensions:
+      - OverloadedStrings
+      - ExistentialQuantification
 
 tests:
   spec:
