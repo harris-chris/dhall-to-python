@@ -102,3 +102,9 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
             checkTempOutputAgainstTarget object_name
 
+        it "converts nested_dataclass.dhall" $ do
+            let object_name = "nested_dataclass"
+            let source = testSourceFolder </> object_name <.> "dhall"
+            let pyOpts = defaultPythonOptions
+            dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
+            checkTempOutputAgainstTarget object_name

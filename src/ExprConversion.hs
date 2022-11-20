@@ -7,7 +7,7 @@ import qualified Data.Text.IO as TIO
 import Data.Maybe ( catMaybes )
 import Data.Typeable ( typeOf )
 import Data.Void ( Void )
-import Dhall.Core ( Binding(..), Expr(..), RecordField(..), denote )
+import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ), denote )
 import Dhall.Map as DhallMap
 import Dhall.Parser ( Src )
 import System.Directory ( createDirectoryIfMissing )
@@ -50,11 +50,15 @@ data ConvertState = ConvertState {
 
 newConvertState = ConvertState False []
 
+type RecordKey = Text
+
 data PythonObj =
-    PythonIntTypeSpec Text
-    | PythonFloatTypeSpec Text
-    | PythonDataclass T.Text [PythonObj]
-    | PythonPackage T.Text [PythonObj]
+    PythonFloatTypeSpec RecordKey
+    | PythonIntTypeSpec RecordKey
+    | PythonStrTypeSpec RecordKey
+    | PythonUserDefinedTypeSpec RecordKey Text
+    | PythonDataclass RecordKey [PythonObj]
+    | PythonPackage RecordKey [PythonObj]
     deriving (Eq, Show)
 
 writePythonObj :: PythonOptions -> FilePath -> Int -> PythonObj -> IO ()
@@ -69,7 +73,10 @@ writePythonObj pyOpts baseFolder indent (PythonPackage name objs) = let
         createDirectoryIfMissing False baseFolder
         TIO.writeFile initFpath initContents
         TIO.writeFile pyFpath pyHeader
-        foldl (\io x -> io >> writePythonObj pyOpts pyFpath indent x) (return ()) objs
+        foldl (\io x -> io
+            >> writePythonObj pyOpts pyFpath indent x
+            >> appendFile pyFpath "\n"
+            ) (return ()) objs
 
 writePythonObj pyOpts toFile indent (PythonDataclass name objs) = let
     dataclassParams = getDataclassParameters $ dataclassOptions pyOpts
@@ -83,12 +90,20 @@ writePythonObj pyOpts toFile indent (PythonDataclass name objs) = let
             (return ())
             objs
 
+writePythonObj pyOpts toFile indent (PythonFloatTypeSpec name) = let
+    writeStr = getIndent indent <> name <> ": float\n"
+    in TIO.appendFile toFile writeStr
+
 writePythonObj pyOpts toFile indent (PythonIntTypeSpec name) = let
     writeStr = getIndent indent <> name <> ": int\n"
     in TIO.appendFile toFile writeStr
 
-writePythonObj pyOpts toFile indent (PythonFloatTypeSpec name) = let
-    writeStr = getIndent indent <> name <> ": float\n"
+writePythonObj pyOpts toFile indent (PythonStrTypeSpec name) = let
+    writeStr = getIndent indent <> name <> ": str\n"
+    in TIO.appendFile toFile writeStr
+
+writePythonObj pyOpts toFile indent (PythonUserDefinedTypeSpec key typeName) = let
+    writeStr = getIndent indent <> key <> ": " <> typeName <> "\n"
     in TIO.appendFile toFile writeStr
 
 getIndent :: Int -> Text
@@ -211,12 +226,6 @@ instance Converts (Expr s a) where
     convert cs (ImportAlt _ _) = error "import alt"
     convert cs (Embed _) = error "embed"
 
-    -- convert cs e = let err = traceShowId e in error "Not matched"
-    -- convert cs e = error "Not matched"
-    -- convert cs Let (Binding _ var _ _ _ (Record map) = toDataclass map
-
--- toDataclass :: T.Text -> (DhallMap.Map T.Text (RecordField s a)) -> PythonObj
--- toDataclass name map = PyType $ Dataclass name $ convert <$> map
 addDataclass :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> ConvertState
 addDataclass (ConvertState i objs) name map = let
     dcObjs = elems $ mapWithKey getMapField map
@@ -224,11 +233,13 @@ addDataclass (ConvertState i objs) name map = let
     in ConvertState i ((trace ("dataclass is " ++ show dc) dc):objs)
 
 getMapField :: T.Text -> RecordField s a -> PythonObj
+getMapField name (RecordField _ (Var (V typeName _)) _ _) = PythonUserDefinedTypeSpec name typeName
+getMapField name (RecordField _ Text _ _) = PythonStrTypeSpec name
 getMapField name (RecordField _ Natural _ _) = PythonIntTypeSpec name
 getMapField name (RecordField _ Double _ _) = PythonFloatTypeSpec name
 
 addPackage :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> ConvertState
 addPackage (ConvertState i objs) name map = let
-    pkg = PythonPackage name objs
+    pkg = PythonPackage name $ reverse objs
     in ConvertState i [(trace ("Package is " ++ show pkg) pkg)]
 
