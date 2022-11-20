@@ -134,8 +134,9 @@ instance Converts (Expr s a) where
     convert cs (Lam _ _ _) = error "lam"
     convert cs (Pi _ _ _ _) = error "pi"
     convert cs (App _ _) = error "app"
-    convert cs (Let (Binding _ name _ _ _ (Record m)) e) = let
-        cs' = addDataclass cs (trace ("adding dataclass" ++ T.unpack name) name) m
+    convert (ConvertState d objs) (Let (Binding _ name _ _ _ (Record m)) e) = let
+        newDc = getDataclass name m
+        cs' = ConvertState d (newDc:objs)
         in convert cs' e
     convert cs (Let (Binding _ name _ _ _ (RecordLit m)) e) = let
         cs' = addPackage cs name m
@@ -236,11 +237,10 @@ instance Converts (Expr s a) where
     convert cs (ImportAlt _ _) = error "import alt"
     convert cs (Embed _) = error "embed"
 
-addDataclass :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> ConvertState
-addDataclass (ConvertState i objs) name map = let
+getDataclass :: T.Text -> (Map T.Text (RecordField s a))-> PythonObj
+getDataclass name map = let
     dcObjs = elems $ mapWithKey getMapField map
-    dc = PythonDataclass name dcObjs
-    in ConvertState i ((trace ("dataclass is " ++ show dc) dc):objs)
+    in PythonDataclass name dcObjs
 
 getMapField :: T.Text -> RecordField s a -> PythonObj
 getMapField name (RecordField _ attr _ _) = getDataclassTypeAttribute name attr
