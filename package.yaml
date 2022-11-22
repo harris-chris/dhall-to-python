@@ -16,7 +16,7 @@ library:
   exposed-modules: ReadWrite
   default-extensions:
     - OverloadedStrings
-    - ExistentialQuantification
+    - ScopedTypeVariables
 
 executables:
   dhall-to-python:

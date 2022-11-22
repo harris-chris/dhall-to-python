@@ -11,11 +11,8 @@ import System.FilePath.Posix (takeDirectory)
 import qualified Data.Text
 
 import Dhall.Core( denote )
-import Dhall.Parser( exprFromText, ParseError )
 
 import ExprConversion
-
-data FileParseError = DhallError ParseError | PythonObjNotFound
 
 dhallFileToPythonPackage :: PythonOptions -> FilePath -> FilePath -> IO ()
 dhallFileToPythonPackage pyOpts fromFile toFolder = do
@@ -27,19 +24,4 @@ dhallFileToPythonPackage pyOpts fromFile toFolder = do
 printErr :: FileParseError -> IO ()
 printErr (DhallError err) = print "Dhall file failed to parse"
 printErr PythonObjNotFound = print "No valid python object found"
-
-dhallFileToPythonPackageObj :: FilePath -> IO (Either FileParseError PythonObj)
-dhallFileToPythonPackageObj fromFile = do
-    contents <- TIO.readFile fromFile
-    let exprE = exprFromText fromFile contents
-    let exprE' = denote <$> exprE
-    let cs = newConvertState
-    let objE = convert cs <$> exprE'
-    case objE of
-        Left err -> return $ Left $ DhallError err
-        Right (ConvertState d objs) -> case objs of
-            [pkg] -> return (Right pkg)
-            _ -> return (Left PythonObjNotFound)
-            -- then return (Right (fromJust objO))
-            -- else return (Left PythonObjNotFound)
 

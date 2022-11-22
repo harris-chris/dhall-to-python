@@ -1,3 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables              #-}
+{-# LANGUAGE FlexibleInstances              #-}
+
 module ExprConversion where
 
 import Debug.Trace ( trace, traceShowId )
@@ -10,7 +13,7 @@ import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ), denote )
 import Dhall.Core ( Import(..), ImportHashed(..), ImportType(..), ImportMode(..) )
 import Dhall.Core ( FilePrefix(..), File(..) )
 import Dhall.Map as DhallMap
-import Dhall.Parser ( Src )
+import Dhall.Parser ( Src, ParseError, exprFromText )
 import System.Directory ( createDirectoryIfMissing )
 import System.FilePath ( (</>), (<.>), takeBaseName )
 import Text.Casing ( quietSnake )
@@ -40,9 +43,6 @@ data PythonOptions = PythonOptions {
 
 defaultPythonOptions :: PythonOptions
 defaultPythonOptions = PythonOptions defaultDataclassOptions
-
-class Converts a where
-    convert :: ConvertState -> a -> ConvertState
 
 data ConvertState = ConvertState {
     isDenoted :: Bool
@@ -125,7 +125,10 @@ getIndent' x acc = getIndent' (x - 1) ("    " ++ acc)
 -- instance Converts (RecordField s a) where
 --     convert rf = convert $ recordFieldValue rf
 
-instance Converts (Expr s a) where
+class Converts a where
+    convert :: ConvertState -> a -> ConvertState
+
+instance Converts (Expr s Import) where
     convert (ConvertState False objs) e = let
         cs' = ConvertState True objs
         in convert cs' $ denote e
@@ -134,6 +137,10 @@ instance Converts (Expr s a) where
     convert cs (Lam _ _ _) = error "lam"
     convert cs (Pi _ _ _ _) = error "pi"
     convert cs (App _ _) = error "app"
+    convert (ConvertState d objs) (Let (Binding _ name _ _ _ (Embed impt)) e) = let
+        newPkg = getImportedPackage name impt
+        cs' = ConvertState d (newPkg:objs)
+        in convert cs' e
     convert (ConvertState d objs) (Let (Binding _ name _ _ _ (Record m)) e) = let
         newDc = getDataclass name m
         cs' = ConvertState d (newDc:objs)
@@ -142,10 +149,10 @@ instance Converts (Expr s a) where
         cs' = addPackage cs name m
         in convert cs' e
     convert (ConvertState d objs) (Let (Binding _ name _ _ _ attr) e) = let
-            dcAttribute = getDataclassTypeAttribute name attr
-            objs' = dcAttribute:objs
-            cs' = ConvertState d objs'
-            in convert cs' e
+        dcAttribute = getDataclassTypeAttribute name attr
+        objs' = dcAttribute:objs
+        cs' = ConvertState d objs'
+        in convert cs' e
     -- convert (ConvertState d objs) (Let (Binding _ name _ _ _ (Double)) e) = let
     --         objs' = DataclassFloatAttribute (traceShowId name):objs
     --         cs' = ConvertState d objs'
@@ -164,8 +171,6 @@ instance Converts (Expr s a) where
     -- convert cs (Embed imprt) =
     --     cs' = addSubPackage imprt
     --     error $ "Not implemented: dhall imports from URL"
-    convert cs (Embed _) =
-        error $ "Not implemented: dhall imports from URL"
     convert cs (Annot _ _) = error "annot"
     convert cs Bool = error "bool"
     convert cs (BoolLit _) = error "boollit"
@@ -237,6 +242,12 @@ instance Converts (Expr s a) where
     convert cs (ImportAlt _ _) = error "import alt"
     convert cs (Embed _) = error "embed"
 
+getImportedPackage :: T.Text -> Import -> PythonObj
+getImportedPackage name (Import (ImportHashed hash (Local prefix file)) Code) = undefined
+-- getImportedPackage name (Import (ImportHashed hash (Local prefix file)) Code) = let
+--     path = show file
+--     objE = dhallFileToPythonPackageObj path
+
 getDataclass :: T.Text -> (Map T.Text (RecordField s a))-> PythonObj
 getDataclass name map = let
     dcObjs = elems $ mapWithKey getMapField map
@@ -256,4 +267,19 @@ addPackage :: ConvertState -> T.Text -> (Map T.Text (RecordField s a)) -> Conver
 addPackage (ConvertState i objs) name map = let
     pkg = PythonPackage name $ reverse objs
     in ConvertState i [(trace ("Package is " ++ show pkg) pkg)]
+
+data FileParseError = DhallError ParseError | PythonObjNotFound
+
+dhallFileToPythonPackageObj :: FilePath -> IO (Either FileParseError PythonObj)
+dhallFileToPythonPackageObj fromFile = do
+    contents <- TIO.readFile fromFile
+    let exprE = exprFromText fromFile contents
+    let exprE' = denote <$> exprE
+    let cs = newConvertState
+    let objE = convert cs <$> exprE'
+    case objE of
+        Left err -> return $ Left $ DhallError err
+        Right (ConvertState d objs) -> case objs of
+            [pkg] -> return (Right pkg)
+            _ -> return (Left PythonObjNotFound)
 

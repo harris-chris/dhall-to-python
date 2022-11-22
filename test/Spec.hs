@@ -108,3 +108,10 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             let pyOpts = defaultPythonOptions
             dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
             checkTempOutputAgainstTarget object_name
+
+        it "converts one_package_imports_another.dhall" $ do
+            let object_name = "one_package_imports_another"
+            let source = testSourceFolder </> object_name <.> "dhall"
+            let pyOpts = defaultPythonOptions
+            dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
+            checkTempOutputAgainstTarget object_name

@@ -18,7 +18,7 @@ library
       src
   default-extensions:
       OverloadedStrings
-      ExistentialQuantification
+      ScopedTypeVariables
   build-depends:
       base ==4.*
     , casing ==0.1.4.1

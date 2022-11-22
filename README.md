@@ -1,3 +1,24 @@
+What's going on here:
+- In the dhall code, the objects are nested within one another.
+- If there's an deepest let binding, this is our "package declaration"
+- Other innermost objects, not clear how to treat them yet.
+- A dataclass is a let binding with a record as its value
+- There should only ever be one non-let-binding object per dhall file (is this true?)
+- So handling let bindings is the mainh part of the work here. To handle let bindings:
+  - Ignore functions
+  - Ignore and warn on literals
+  - Do collect:
+    - Records ( = dataclasses)
+    - Imports ( = packages )
+    -
+  - Recursively bring in imports, each import should return a PythonObj which is likely a pythonPackage. If we are to re-create the original file structure, we need to keep a record of where a python package was imported.
+So our end data structure is like:
+- A single python package, which contains
+  - records/dataclasses,
+  - other python packages (do we keep a record of whether they were imported?)
+  - maybe some simple types
+
+
 **Nix flake for an example haskell package**
 
 To get started:
