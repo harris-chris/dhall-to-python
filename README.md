@@ -1,3 +1,13 @@
+Note that if we parse the files that are found by import statements as we come across them, the whole program is going to be in an IO Monad. Not sure to what extent that's a problem.
+The alternative would be to go through the entire file structure and record it as some intermediary state, like a tree of Expr s a. This tree would represent the dhall file tree.
+That sounds neater.
+
+Are we sure there isn't some way to have Dhall do that itself?
+Yes - there is the load function, though it returns IOs.
+Can we just clear out those IOs
+
+So we go through
+
 What's going on here:
 - In the dhall code, the objects are nested within one another.
 - If there's an deepest let binding, this is our "package declaration"

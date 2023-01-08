@@ -11,12 +11,17 @@ dependencies:
   - directory >= 1.3.6.0
   - optparse-applicative >= 0.16.1.0
 
+# verbatim:
+  # default-language: GHC2021
+
 library:
   source-dirs: src
   exposed-modules: ReadWrite
   default-extensions:
     - OverloadedStrings
     - ScopedTypeVariables
+  # verbatim:
+    # default-language: GHC2021
 
 executables:
   dhall-to-python:
@@ -26,6 +31,8 @@ executables:
     default-extensions:
       - OverloadedStrings
       - ExistentialQuantification
+    # verbatim:
+    #   default-language: GHC2021
 
   show-dhall-expr:
     main: ShowDhallExpr.hs
@@ -34,6 +41,8 @@ executables:
     default-extensions:
       - OverloadedStrings
       - ExistentialQuantification
+    # verbatim:
+      # default-language: GHC2021
 
 tests:
   spec:
@@ -47,3 +56,5 @@ tests:
       - megaparsec >= 9.2.1
     build-tools: hspec-discover
     default-extensions:	OverloadedStrings
+    # verbatim:
+      # default-language: GHC2021

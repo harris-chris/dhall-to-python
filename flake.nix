@@ -1,7 +1,7 @@
 {
   description = "Utility to convert dhall records and types to Python";
   inputs = {
-    nixpkgs.url = "nixpkgs";
+    nixpkgs.url = github:NixOS/nixpkgs/nixos-unstable;
     flake-utils.url = github:numtide/flake-utils;
   };
   outputs = { self, nixpkgs, flake-utils }:
@@ -24,8 +24,9 @@
             packages = p: [ dhall-to-python ];
             withHoogle = true;
             buildInputs = with pkgs; with pkgs.haskellPackages; [
-              haskell-language-server
-              ghcid
+              # haskell-language-server
+              # haskell.compiler.ghc924
+              # ghcid
               cabal-install
               hpack
               haskellPackages.zlib
