@@ -64,18 +64,23 @@ checkFilesMatch actual expected = do
 main :: IO ()
 main = hspec $ beforeAll clearTempOutputFolder $ do
     describe "Parses dhall files" $ do
-        it "Parses telephone_number.dhall"
-            let fpath = testSourceFolder </> "phone_number.dhall" :: FilePath
-            let parsed = readDhallFile fpath
-            case parsed of
+        it "Parses telephone_number.dhall" $ do
+            let fpath = testSourceFolder </> "phone_number.dhall"
+            contents <- TIO.readFile fpath
+            let exprE = exprFromText fpath contents
+            let parsedE = parse strictParseState <$> exprE
+            case parsedE of
                 Left _ -> assertFailure "Expression could not be parsed"
-                Right actual -> do
-                    actual `shouldBe` PackageObj "PhoneNumberPackage" [
-                        RecordObj "PhoneNumber" [
-                            NaturalTypeAttribute "country_code"
-                            , TextTypeAttribute "number"
+                Right (ParseState _ _ errors)  -> do
+                    putStrLn $ unlines $ show <$> errors
+                    assertFailure ""
+                Right (ParseState _ [pkg] _)  -> do
+                    pkg `shouldBe` PackageObj "PhoneNumberPackage" [
+                            (RecordObj "PhoneNumber" [
+                                NaturalTypeAttribute "country_code"
+                                , TextTypeAttribute "number"
+                            ])
                         ]
-                    ]
 
     -- describe "Parses dhall files" $ do
     --     it "Parses natural.dhall" $ do

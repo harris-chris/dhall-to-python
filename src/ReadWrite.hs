@@ -21,26 +21,26 @@ import ExprConversion
 import PythonPackage
 import WritePythonPackage
 
-dhallFileToDhallExpr :: FilePath -> (IO (Either DhallToPythonError (Expr Src Void)))
-dhallFileToDhallExpr fromFile = do
-    contents <- TIO.readFile fromFile
-    let exprE = exprFromText fromFile contents
-    let exprE' = denote <$> exprE
-    case exprE' of
-        Left err -> return $ Left $ DhallParseError err
-        Right expr -> do
-            let baseDir = takeDirectory fromFile
-            loaded <- loadRelativeTo baseDir UseSemanticCache expr
-            return $ Right loaded
+-- dhallFileToDhallExpr :: FilePath -> (IO (Either DhallToPythonError (Expr Src Void)))
+-- dhallFileToDhallExpr fromFile = do
+--     contents <- TIO.readFile fromFile
+--     let exprE = exprFromText fromFile contents
+--     let exprE' = denote <$> exprE
+--     case exprE' of
+--         Left err -> return $ Left $ DhallParseError err
+--         Right expr -> do
+--             let baseDir = takeDirectory fromFile
+--             loaded <- loadRelativeTo baseDir UseSemanticCache expr
+--             return $ Right loaded
 
-dhallFileToPythonPackage :: PythonOptions -> FilePath -> FilePath -> IO ()
-dhallFileToPythonPackage pyOpts fromFile toFolder = do
-    dhallExprE <- dhallFileToDhallExpr fromFile
-    let initConvertState = ConvertState False []
-    let pythonPkgE = dhallExprE >>= (convert initConvertState)
-    case pythonPkgE of
-        Left err -> print err
-        Right (ConvertState _ [pkg]) -> writePythonObj pyOpts toFolder 0 pkg
+-- dhallFileToPythonPackage :: PythonOptions -> FilePath -> FilePath -> IO ()
+-- dhallFileToPythonPackage pyOpts fromFile toFolder = do
+--     dhallExprE <- dhallFileToDhallExpr fromFile
+--     let initConvertState = ConvertState False []
+--     let pythonPkgE = dhallExprE >>= (convert initConvertState)
+--     case pythonPkgE of
+--         Left err -> print err
+--         Right (ConvertState _ [pkg]) -> writePythonObj pyOpts toFolder 0 pkg
 
 -- printErr :: FileParseError -> IO ()
 -- printErr (DhallError err) = print "Dhall file failed to parse"
