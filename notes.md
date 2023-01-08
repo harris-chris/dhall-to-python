@@ -1,3 +1,11 @@
+Just because a dataclass holds a dataclass, doesn't mean it's defined within that dataclass.
+
+We need something like a pointer to a dataclass. But probably just the name is OK.
+
+I think we do have to use imports as the package boundary, because a file may have multiple dataclasses.
+
+WE NEED THIS INTERMEDIARY STATE, IT'S TOO HARD OTHERWISE
+just get rid of the un-needed stuff
 
 The dhall structure is file-system agnostic, but the python output is not
 We want to go:

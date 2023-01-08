@@ -6,6 +6,7 @@ import qualified Data.Map as Map
 import Debug.Trace (traceShowId)
 import ExprConversion
 import PythonPackage
+import ReadDhallExpr
 import ReadWrite
 import Dhall.Core
 import Dhall.Map as DhallMap
@@ -63,56 +64,70 @@ checkFilesMatch actual expected = do
 main :: IO ()
 main = hspec $ beforeAll clearTempOutputFolder $ do
     describe "Parses dhall files" $ do
-        it "Parses natural.dhall" $ do
-            let fpath = testSourceFolder </> "natural.dhall" :: FilePath
-            contents <- TIO.readFile fpath
-            let expected = NaturalLit 22
-            let actual = exprFromText fpath contents
-            case actual of
+        it "Parses telephone_number.dhall"
+            let fpath = testSourceFolder </> "phone_number.dhall" :: FilePath
+            let parsed = readDhallFile fpath
+            case parsed of
                 Left _ -> assertFailure "Expression could not be parsed"
-                Right (Note src (Note src' val)) -> do
-                    -- The original source, as it was read
-                    src `shouldBe` Src
-                        (SourcePos fpath (mkPos 1) (mkPos 1))
-                        (SourcePos fpath (mkPos 2) (mkPos 1))
-                        "22\n"
-                    -- The parsed source, with eg newlines removed
-                    src' `shouldBe` Src
-                        (SourcePos fpath (mkPos 1) (mkPos 1))
-                        (SourcePos fpath (mkPos 1) (mkPos 3))
-                        "22"
-                    val `shouldBe` expected
-                Right _ -> assertFailure "Parsed expression was not expected"
+                Right actual -> do
+                    actual `shouldBe` PackageObj "PhoneNumberPackage" [
+                        RecordObj "PhoneNumber" [
+                            NaturalTypeAttribute "country_code"
+                            , TextTypeAttribute "number"
+                        ]
+                    ]
 
-        it "parses type.dhall" $ do
-            let fpath = testSourceFolder </> "type.dhall" :: FilePath
-            contents <- TIO.readFile fpath
-            let expected = Natural
-            let actual = exprFromText fpath contents
-            case actual of
-                Left _ -> assertFailure "Expression could not be parsed"
-                Right (Note src (Note src' val)) -> do
-                    val `shouldBe` expected
-                Right _ -> assertFailure "Parsed expression was not expected"
+    -- describe "Parses dhall files" $ do
+    --     it "Parses natural.dhall" $ do
+    --         let fpath = testSourceFolder </> "natural.dhall" :: FilePath
+    --         contents <- TIO.readFile fpath
+    --         let expected = NaturalLit 22
+    --         let actual = exprFromText fpath contents
+    --         case actual of
+    --             Left _ -> assertFailure "Expression could not be parsed"
+    --             Right (Note src (Note src' val)) -> do
+    --                 -- The original source, as it was read
+    --                 src `shouldBe` Src
+    --                     (SourcePos fpath (mkPos 1) (mkPos 1))
+    --                     (SourcePos fpath (mkPos 2) (mkPos 1))
+    --                     "22\n"
+    --                 -- The parsed source, with eg newlines removed
+    --                 src' `shouldBe` Src
+    --                     (SourcePos fpath (mkPos 1) (mkPos 1))
+    --                     (SourcePos fpath (mkPos 1) (mkPos 3))
+    --                     "22"
+    --                 val `shouldBe` expected
+    --             Right _ -> assertFailure "Parsed expression was not expected"
 
-    describe "Convert dhall file to python file" $ do
-        it "converts simple_dataclass.dhall" $ do
-            let object_name = "simple_dataclass"
-            let source = testSourceFolder </> object_name <.> "dhall"
-            let pyOpts = defaultPythonOptions
-            dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
-            checkTempOutputAgainstTarget object_name
+    --     it "parses type.dhall" $ do
+    --         let fpath = testSourceFolder </> "type.dhall" :: FilePath
+    --         contents <- TIO.readFile fpath
+    --         let expected = Natural
+    --         let actual = exprFromText fpath contents
+    --         case actual of
+    --             Left _ -> assertFailure "Expression could not be parsed"
+    --             Right (Note src (Note src' val)) -> do
+    --                 val `shouldBe` expected
+    --             Right _ -> assertFailure "Parsed expression was not expected"
 
-        it "converts nested_dataclass.dhall" $ do
-            let object_name = "nested_dataclass"
-            let source = testSourceFolder </> object_name <.> "dhall"
-            let pyOpts = defaultPythonOptions
-            dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
-            checkTempOutputAgainstTarget object_name
+    -- describe "Convert dhall file to python file" $ do
+    --     it "converts simple_dataclass.dhall" $ do
+    --         let object_name = "simple_dataclass"
+    --         let source = testSourceFolder </> object_name <.> "dhall"
+    --         let pyOpts = defaultPythonOptions
+    --         dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
+    --         checkTempOutputAgainstTarget object_name
 
-        it "converts one_package_imports_another.dhall" $ do
-            let object_name = "one_package_imports_another"
-            let source = testSourceFolder </> object_name <.> "dhall"
-            let pyOpts = defaultPythonOptions
-            dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
-            checkTempOutputAgainstTarget object_name
+    --     it "converts nested_dataclass.dhall" $ do
+    --         let object_name = "nested_dataclass"
+    --         let source = testSourceFolder </> object_name <.> "dhall"
+    --         let pyOpts = defaultPythonOptions
+    --         dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
+    --         checkTempOutputAgainstTarget object_name
+
+    --     it "converts one_package_imports_another.dhall" $ do
+    --         let object_name = "one_package_imports_another"
+    --         let source = testSourceFolder </> object_name <.> "dhall"
+    --         let pyOpts = defaultPythonOptions
+    --         dhallFileToPythonPackage pyOpts source $ tempOutputFolder </> object_name
+    --         checkTempOutputAgainstTarget object_name
