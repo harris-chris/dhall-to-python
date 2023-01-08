@@ -4,6 +4,6 @@ let DataclassWithImport = {
     simple_dataclass : SimpleDataclass.SimpleDataclass
 }
 
-let DataclassWithImport = {
+let DataclassWithImportPackage = {
     DataclassWithImport
-} in DataclassWithImport
+} in DataclassWithImportPackage

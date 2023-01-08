@@ -10,5 +10,5 @@ let Nested = {
 
 let NestedDataclass = {
     Nested
-} in Nested
+} in NestedDataclass
 

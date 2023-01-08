@@ -5,6 +5,7 @@ import Test.HUnit.Lang (assertFailure)
 import qualified Data.Map as Map
 import Debug.Trace (traceShowId)
 import ExprConversion
+import PythonPackage
 import ReadWrite
 import Dhall.Core
 import Dhall.Map as DhallMap
