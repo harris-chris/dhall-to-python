@@ -51,7 +51,12 @@ class ParsesIO a where
     parseIO :: IO ParseState -> a -> IO ParseState
 
 instance (Show a, Show s) => ParsesIO (Expr s a) where
-    parseIO psIO (Let (Binding _ name _ _ _ (Embed impt)) e) = addImport psIO name impt
+    parseIO psIO (
+        Let (Binding _ name _ _ _ (
+            Embed (Import (ImportHashed hash (Local prefix file)) Code))
+        ) e ) =
+            let path = show file
+            in readParseStateFromFile psIO path
     -- If it's not an IO-related expression, use the non-IO parse
     parseIO psIO e = do
         ps <- psIO
@@ -115,7 +120,7 @@ addPackageObj (ParseState i objs errs dn) name map =
 --             return $ Right loaded
 
 addImport :: IO ParseState -> T.Text -> Import -> IO ParseState
-addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) = undefined
+-- addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) = undefined
 addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) =
     let path = show file
     in readParseStateFromFile psIO path
