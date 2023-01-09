@@ -82,6 +82,27 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
                     putStrLn $ unlines $ show <$> errors
                     assertFailure ""
 
+        it "Parses personal_details.dhall" $ do
+            let fpath = testSourceFolder </> "personal_details.dhall"
+            contents <- TIO.readFile fpath
+            let exprE = exprFromText fpath contents
+            let parsedE = parse strictParseState <$> exprE
+            case parsedE of
+                Left _ -> assertFailure "Expression could not be parsed"
+                Right (ParseState _ [pkg] [] _)  -> do
+                    pkg `shouldBe` PackageObj "PersonalDetailsPackage" [
+                            (RecordObj "Email" [
+                                TextTypeAttribute "address"
+                            ])
+                            , (RecordObj "PhoneNumber" [
+                                NaturalTypeAttribute "country_code"
+                                , TextTypeAttribute "number"
+                            ])
+                        ] ["Email", "PhoneNumber"]
+                Right (ParseState _ _ errors _)  -> do
+                    putStrLn $ unlines $ show <$> errors
+                    assertFailure ""
+
     -- describe "Parses dhall files" $ do
     --     it "Parses natural.dhall" $ do
     --         let fpath = testSourceFolder </> "natural.dhall" :: FilePath
