@@ -16,7 +16,7 @@ dependencies:
 
 library:
   source-dirs: src
-  exposed-modules: ReadWrite
+  # exposed-modules: ReadWrite DhallExprUtils
   default-extensions:
     - OverloadedStrings
     - ScopedTypeVariables

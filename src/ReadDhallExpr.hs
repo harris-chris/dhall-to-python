@@ -6,10 +6,12 @@ module ReadDhallExpr where
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Dhall.Map
-import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ), denote )
+import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ) )
 import Dhall.Core ( Import(..), ImportHashed(..), ImportType(..), ImportMode(..) )
+import Dhall.Core ( censorExpression, denote )
 import Dhall.Parser ( Src(..), ParseError, exprFromText )
 
+-- import DhallExprUtils (getTypesOnly)
 import Errors
 
 type ObjName = T.Text
@@ -54,7 +56,8 @@ instance (Show a) => Parses (Expr Src a) where
         ) =
         addPackageObj ps name m
     parse ps@(ParseState False _ _) expr@(Note (Src _ _ srcTxt) _) =
-        ps { errs = errs ps ++ [ExpressionNotRecognized srcTxt (T.pack $ show expr)] }
+        let exprTypesOnly = T.pack $ show $ expr
+        in ps { errs = errs ps ++ [ExpressionNotRecognized srcTxt exprTypesOnly] }
 
 addRecordObj :: ParseState -> ObjName -> (Map T.Text (RecordField Src a)) -> ParseState
 addRecordObj ps name map =

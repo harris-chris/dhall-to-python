@@ -10,9 +10,14 @@ build-type:     Simple
 
 library
   exposed-modules:
-      ReadWrite
-  other-modules:
+      DhallExprUtils
+      Errors
       ExprConversion
+      PythonPackage
+      ReadDhallExpr
+      ReadWrite
+      WritePythonPackage
+  other-modules:
       Paths_dhall_to_python_package
   hs-source-dirs:
       src
@@ -75,8 +80,13 @@ test-suite spec
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      DhallExprUtils
+      Errors
       ExprConversion
+      PythonPackage
+      ReadDhallExpr
       ReadWrite
+      WritePythonPackage
       Paths_dhall_to_python_package
   hs-source-dirs:
       test
