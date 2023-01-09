@@ -62,7 +62,7 @@ data ShowOptions = ShowOptions {
     , showFirstLast :: Maybe (Int, Int)
 }
 
-showExpr :: (Show a) => ShowOptions -> Expr Src a -> T.Text
+showExpr :: (Show a, Show s) => ShowOptions -> Expr s a -> T.Text
 showExpr opts expr =
     let exprTxt = T.pack . show . (cleanSrc (showDenoted opts)) $ expr
         exprTxt' = indent exprTxt

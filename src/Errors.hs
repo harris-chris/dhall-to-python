@@ -8,9 +8,14 @@ type Source = T.Text
 type Expression = T.Text
 
 data ReadDhallError =
-    RecordTypeAttrNotRecognized T.Text
-    | ExpressionNotRecognized Source Expression
-    deriving (Show)
+    RecordTypeAttrNotRecognized Expression
+    | ExpressionNotRecognized Expression
+
+instance Show ReadDhallError where
+    show (RecordTypeAttrNotRecognized e) =
+        "RecordTypeAttrNotRecognized: " ++ T.unpack e
+    show (ExpressionNotRecognized e) =
+        "ExpressionNotRecognized:\n" ++ T.unpack e
 
 data ConvError =
     DhallParseError ParseError

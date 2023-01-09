@@ -11,7 +11,8 @@ import Dhall.Core ( Import(..), ImportHashed(..), ImportType(..), ImportMode(..)
 import Dhall.Core ( censorExpression, denote )
 import Dhall.Parser ( Src(..), ParseError, exprFromText )
 
--- import DhallExprUtils (getTypesOnly)
+import DhallExprUtils (ShowOptions(..), showExpr)
+
 import Errors
 
 type ObjName = T.Text
@@ -34,9 +35,10 @@ data ParseState = ParseState {
     ignoreUnknown :: Bool
     , objs :: [ParsedObj]
     , errs :: [ReadDhallError]
+    , deNoted :: Bool
 }
 
-strictParseState = ParseState False [] []
+strictParseState = ParseState False [] [] False
 
 includeObjE :: ParseState -> (Either ReadDhallError ParsedObj) -> ParseState
 includeObjE ps (Left err) = ps { errs = errs ps ++ [err] }
@@ -46,42 +48,48 @@ class Parses a where
     parse :: ParseState -> a -> ParseState
 
 -- The central function here; most others are called from this
-instance (Show a) => Parses (Expr Src a) where
-    parse ps (Note _ (Let (Binding _ name _ _ _ (Record m)) e)) =
+instance (Show a, Show s) => Parses (Expr s a) where
+    parse ps@(ParseState _ _ _ False) e =
+        let ps' = ps { deNoted = True }
+            deNotedExpr = denote e :: Expr s a
+        in parse ps' deNotedExpr
+    parse ps (Let (Binding _ name _ _ _ (Record m)) e) =
         let ps' = addRecordObj ps name m
         in parse ps' e
     -- Note that we can only parse a package if it's the final obj in the expression
-    parse ps (
-        Note _ (Let (Binding _ name _ _ _ (RecordLit m)) (Var _ ))
-        ) =
+    parse ps (Let (Binding _ name _ _ _ (RecordLit m)) (Var _ )) =
         addPackageObj ps name m
-    parse ps@(ParseState False _ _) expr@(Note (Src _ _ srcTxt) _) =
-        let exprTypesOnly = T.pack $ show $ expr
-        in ps { errs = errs ps ++ [ExpressionNotRecognized srcTxt exprTypesOnly] }
+    parse ps@(ParseState False _ _ _) expr =
+        let showOpts = ShowOptions True (Just (20, 10))
+            exprErr = ExpressionNotRecognized $ showExpr showOpts expr
+        in ps { errs = errs ps ++ [ exprErr ] }
 
-addRecordObj :: ParseState -> ObjName -> (Map T.Text (RecordField Src a)) -> ParseState
+addRecordObj :: (Show a, Show s) => ParseState -> ObjName -> (Map T.Text (RecordField s a)) -> ParseState
 addRecordObj ps name map =
     let attributes = sequenceA $ elems $ mapWithKey getRecordAttr map
         objE = (RecordObj name ) <$> attributes
     in includeObjE ps objE
 
-getRecordAttr :: AttrName -> RecordField Src a -> Either ReadDhallError RecordTypeAttr
+getRecordAttr :: (Show a, Show s) => AttrName -> RecordField s a -> Either ReadDhallError RecordTypeAttr
 getRecordAttr name (RecordField _ attr _ _) = getRecordTypeAttr name attr
 
-getRecordTypeAttr :: AttrName -> Expr Src a -> Either ReadDhallError RecordTypeAttr
-getRecordTypeAttr name (Note _ Natural) = Right $ NaturalTypeAttribute name
-getRecordTypeAttr name (Note _ Double) = Right $ DoubleTypeAttribute name
-getRecordTypeAttr name (Note _ Text) = Right $ TextTypeAttribute name
-getRecordTypeAttr name (Note _ (Var (V tn _))) = Right $ UserDefinedTypeAttribute name tn
-getRecordTypeAttr name (Note (Src _ _ txt) _) = Left $ RecordTypeAttrNotRecognized txt
+getRecordTypeAttr :: (Show a, Show s) => AttrName -> Expr s a -> Either ReadDhallError RecordTypeAttr
+getRecordTypeAttr name Natural = Right $ NaturalTypeAttribute name
+getRecordTypeAttr name Double = Right $ DoubleTypeAttribute name
+getRecordTypeAttr name Text = Right $ TextTypeAttribute name
+getRecordTypeAttr name (Var (V tn _)) = Right $ UserDefinedTypeAttribute name tn
+getRecordTypeAttr name expr =
+    let showOpts = ShowOptions True (Just (60, 0))
+        exprTxt = showExpr showOpts expr
+    in Left $ RecordTypeAttrNotRecognized exprTxt
 
-addPackageObj :: ParseState -> T.Text -> (Map T.Text (RecordField Src a)) -> ParseState
+addPackageObj :: ParseState -> T.Text -> (Map T.Text (RecordField s a)) -> ParseState
 -- only include the objects in the map? Need to include all objects, but only expose the ones in the map
 -- Note that there can only be one package per file and it has to be at the base level
 -- Think about how to handle python named imports
-addPackageObj (ParseState i objs errs) name map =
+addPackageObj (ParseState i objs errs dn) name map =
     let pkg = PackageObj name (reverse objs) (keys map)
-    in ParseState i [pkg] errs
+    in ParseState i [pkg] errs dn
 
 -- dhallExprToParsedObj :: FilePath -> (IO (Either DhallToPythonError (Expr Src Void)))
 -- dhallFileToDhallExpr fromFile = do

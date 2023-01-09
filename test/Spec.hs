@@ -71,16 +71,16 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             let parsedE = parse strictParseState <$> exprE
             case parsedE of
                 Left _ -> assertFailure "Expression could not be parsed"
-                Right (ParseState _ _ errors)  -> do
-                    putStrLn $ unlines $ show <$> errors
-                    assertFailure ""
-                Right (ParseState _ [pkg] _)  -> do
+                Right (ParseState _ [pkg] [] _)  -> do
                     pkg `shouldBe` PackageObj "PhoneNumberPackage" [
                             (RecordObj "PhoneNumber" [
                                 NaturalTypeAttribute "country_code"
                                 , TextTypeAttribute "number"
                             ])
                         ] ["PhoneNumber"]
+                Right (ParseState _ _ errors _)  -> do
+                    putStrLn $ unlines $ show <$> errors
+                    assertFailure ""
 
     -- describe "Parses dhall files" $ do
     --     it "Parses natural.dhall" $ do
