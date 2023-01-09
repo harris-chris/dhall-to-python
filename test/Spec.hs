@@ -65,59 +65,52 @@ main :: IO ()
 main = hspec $ beforeAll clearTempOutputFolder $ do
     describe "Parses dhall files" $ do
         it "Parses telephone_number.dhall" $ do
-            let psIO = return strictParseState
+            let psIO = return strictParsed
             let fpath = testSourceFolder </> "phone_number.dhall"
-            parsedE = readParseStateFromFile psIO fpath
-            case parsedE of
-                Left _ -> assertFailure "Expression could not be parsed"
-                Right (ParseState _ [pkg] [] _)  -> do
+            parsed <- readParsedFromFile psIO fpath
+            case parsed of
+                (Parsed _ [pkg] [] _)  -> do
                     pkg `shouldBe` PackageObj "PhoneNumberPackage" [
                             (RecordObj "PhoneNumber" [
                                 NaturalTypeAttribute "country_code"
                                 , TextTypeAttribute "number"
                             ])
                         ] ["PhoneNumber"]
-                Right (ParseState _ _ errors _)  -> do
+                (Parsed _ _ errors _)  -> do
                     putStrLn $ unlines $ show <$> errors
                     assertFailure ""
 
-        -- it "Parses personal_details.dhall" $ do
-        --     let psIO = return strictParseState
-        --     let fpath = testSourceFolder </> "phone_number.dhall"
-        --     parsedE = readParseStateFromFile psIO fpath
-        --     case parsedE of
-        --         Left _ -> assertFailure "Expression could not be parsed"
-        --         Right (ParseState _ [pkg] [] _)  -> do
-        --             pkg `shouldBe` PackageObj "PersonalDetailsPackage" [
-        --                     (RecordObj "Email" [
-        --                         TextTypeAttribute "address"
-        --                     ])
-        --                     , (RecordObj "PhoneNumber" [
-        --                         NaturalTypeAttribute "country_code"
-        --                         , TextTypeAttribute "number"
-        --                     ])
-        --                 ] ["Email", "PhoneNumber"]
-        --         Right (ParseState _ _ errors _)  -> do
-        --             putStrLn $ unlines $ show <$> errors
-        --             assertFailure ""
+        it "Parses personal_details.dhall" $ do
+            let psIO = return strictParsed
+            let fpath = testSourceFolder </> "phone_number.dhall"
+            let pkg = PackageObj "PersonalDetailsPackage"
+                    [
+                        (RecordObj "Email" [
+                            TextTypeAttribute "address"
+                        ])
+                        , (RecordObj "PhoneNumber" [
+                            NaturalTypeAttribute "country_code"
+                            , TextTypeAttribute "number"
+                        ])
+                    ] ["Email", "PhoneNumber"]
+            let expected = strictParsed { objs = [pkg] }
+            actual <- readParsedFromFile psIO fpath
+            actual `shouldBe` expected
 
-        -- it "Parses person_with_telephone_number.dhall" $ do
-        --     let psIO = return strictParseState
-        --     let fpath = testSourceFolder </> "phone_number.dhall"
-        --     parsedE = readParseStateFromFile psIO fpath
-        --     case parsedE of
-        --         Left _ -> assertFailure "Expression could not be parsed"
-        --         Right (ParseState _ [pkg] [] _)  -> do
-        --             pkg `shouldBe` PackageObj "PersonWithPhoneNumberPackage" [
-        --                     (RecordObj "Person" [
-        --                         TextTypeAttribute "name"
-        --                         , UserDefinedTypeAttribute
-        --                             "phone_number" "PhoneNumberPackage.PhoneNumber"
-        --                     ])
-        --                 ] ["Person"]
-        --         Right (ParseState _ _ errors _)  -> do
-        --             putStrLn $ unlines $ show <$> errors
-        --             assertFailure ""
+        it "Parses person_with_telephone_number.dhall" $ do
+            let psIO = return strictParsed
+            let fpath = testSourceFolder </> "phone_number.dhall"
+            let pkg = PackageObj "PersonWithPhoneNumberPackage"
+                    [
+                        (RecordObj "Person" [
+                            TextTypeAttribute "name"
+                            , UserDefinedTypeAttribute
+                                "phone_number" "PhoneNumberPackage.PhoneNumber"
+                        ])
+                    ] ["Person"]
+            let expected = strictParsed { objs = [pkg] }
+            actual <- readParsedFromFile psIO fpath
+            actual `shouldBe` expected
 
     -- describe "Parses dhall files" $ do
     --     it "Parses natural.dhall" $ do

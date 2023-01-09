@@ -11,6 +11,7 @@ data ReadDhallError =
     DhallParseError ParseError
     | RecordTypeAttrNotRecognized Expression
     | ExpressionNotRecognized Expression
+    | UnableToImportPackage FilePath
 
 instance Show ReadDhallError where
     show (RecordTypeAttrNotRecognized e) =
