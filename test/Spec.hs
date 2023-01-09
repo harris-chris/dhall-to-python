@@ -82,7 +82,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
 
         it "Parses personal_details.dhall" $ do
             let psIO = return strictParsed
-            let fpath = testSourceFolder </> "phone_number.dhall"
+            let fpath = testSourceFolder </> "personal_details.dhall"
             let pkg = PackageObj "PersonalDetailsPackage"
                     [
                         (RecordObj "Email" [
@@ -99,7 +99,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
 
         it "Parses person_with_telephone_number.dhall" $ do
             let psIO = return strictParsed
-            let fpath = testSourceFolder </> "phone_number.dhall"
+            let fpath = testSourceFolder </> "person_with_telephone_number.dhall"
             let pkg = PackageObj "PersonWithPhoneNumberPackage"
                     [
                         (RecordObj "Person" [

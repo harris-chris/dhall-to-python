@@ -24,12 +24,16 @@ data RecordTypeAttr =
     | NaturalTypeAttribute ObjName
     | TextTypeAttribute ObjName
     | UserDefinedTypeAttribute ObjName TypeName
-    deriving (Show, Eq)
+    deriving (Eq, Show)
 
 data ParsedObj =
     PackageObj ObjName [ParsedObj] [ObjName] -- [All objs] [Exposed object names]
     | RecordObj ObjName [RecordTypeAttr]
-    deriving (Show, Eq)
+    deriving (Eq, Show)
+
+finalizeObj :: ParsedObj -> ParsedObj
+finalizeObj (PackageObj name objs exp) = PackageObj name (reverse objs) (reverse exp)
+finalizeObj (RecordObj name attrs) = RecordObj name attrs
 
 data Parsed = Parsed {
         ignoreUnknown :: Bool
@@ -37,12 +41,9 @@ data Parsed = Parsed {
         , errs :: [ReadDhallError]
         , deNoted :: Bool
     }
-    deriving (Show)
+    deriving (Eq, Show)
 
 strictParsed = Parsed False [] [] False
-
-includeParsed :: Parsed -> Parsed -> Parsed
-includeParsed psOrig psNew = undefined
 
 includeObjE :: Parsed -> (Either ReadDhallError ParsedObj) -> Parsed
 includeObjE ps (Left err) = ps { errs = err:(errs ps) }
@@ -108,8 +109,9 @@ addPackageObj :: Parsed -> T.Text -> (Map T.Text (RecordField s a)) -> Parsed
 -- Note that there can only be one package per file and it has to be at the base level
 -- Think about how to handle python named imports
 addPackageObj (Parsed i objs errs dn) name map =
-    let pkg = PackageObj name (reverse objs) (keys map)
-    in Parsed i [pkg] errs dn
+    let pkg = PackageObj name objs (keys map)
+        pkg' = finalizeObj pkg
+    in Parsed i [pkg'] errs dn
 
 -- dhallExprToParsedObj :: FilePath -> (IO (Either DhallToPythonError (Expr Src Void)))
 -- dhallFileToDhallExpr fromFile = do
@@ -147,7 +149,8 @@ readParsedFromFile psIO fpath = do
 
 mergePackageIntoParsed :: FilePath -> Parsed -> Parsed -> Parsed
 mergePackageIntoParsed fp (Parsed i os es d) (Parsed _ [pk@(PackageObj _ _ _)] ers _) =
-    Parsed i (pk:os) (ers ++ es) d
+    let pkgFinal = finalizeObj pk
+    in Parsed i (pkgFinal:os) (ers ++ es) d
 mergePackageIntoParsed fp (Parsed i os es d) (Parsed _ [] ers _) =
     Parsed i os (ers ++ es) d
 mergePackageIntoParsed fp (Parsed i os es d) (Parsed _ (o:objs) ers _) =
