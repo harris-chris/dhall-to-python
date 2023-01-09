@@ -5,7 +5,7 @@ let Person = {
     , phone_number : PhoneNumberPackage.PhoneNumber
 }
 
-let PersonPackage = {
+let PersonWithPhoneNumberPackage = {
     Person
-} in PersonPackage
+} in PersonWithPhoneNumberPackage
 

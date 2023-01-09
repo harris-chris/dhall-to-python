@@ -8,7 +8,8 @@ type Source = T.Text
 type Expression = T.Text
 
 data ReadDhallError =
-    RecordTypeAttrNotRecognized Expression
+    DhallParseError ParseError
+    | RecordTypeAttrNotRecognized Expression
     | ExpressionNotRecognized Expression
 
 instance Show ReadDhallError where
@@ -16,9 +17,5 @@ instance Show ReadDhallError where
         "RecordTypeAttrNotRecognized: " ++ T.unpack e
     show (ExpressionNotRecognized e) =
         "ExpressionNotRecognized:\n" ++ T.unpack e
+    show (DhallParseError e) = show e
 
-data ConvError =
-    DhallParseError ParseError
-    | RecordLitFound Src
-    | PythonObjNotFound
-    deriving (Show)

@@ -40,14 +40,26 @@ data ParseState = ParseState {
 
 strictParseState = ParseState False [] [] False
 
+includeParseState :: ParseState -> ParseState -> ParseState
+includeParseState psOrig psNew = undefined
+
 includeObjE :: ParseState -> (Either ReadDhallError ParsedObj) -> ParseState
 includeObjE ps (Left err) = ps { errs = errs ps ++ [err] }
 includeObjE ps (Right obj) = ps { objs = objs ps ++ [obj] }
 
+class ParsesIO a where
+    parseIO :: IO ParseState -> a -> IO ParseState
+
+instance (Show a, Show s) => ParsesIO (Expr s a) where
+    parseIO psIO (Let (Binding _ name _ _ _ (Embed impt)) e) = addImport psIO name impt
+    -- If it's not an IO-related expression, use the non-IO parse
+    parseIO psIO e = do
+        ps <- psIO
+        return $ parse ps e
+
 class Parses a where
     parse :: ParseState -> a -> ParseState
 
--- The central function here; most others are called from this
 instance (Show a, Show s) => Parses (Expr s a) where
     parse ps@(ParseState _ _ _ False) e =
         let ps' = ps { deNoted = True }
@@ -63,7 +75,6 @@ instance (Show a, Show s) => Parses (Expr s a) where
         let showOpts = ShowOptions True (Just (20, 10))
             exprErr = ExpressionNotRecognized $ showExpr showOpts expr
         in ps { errs = errs ps ++ [ exprErr ] }
-
 addRecordObj :: (Show a, Show s) => ParseState -> ObjName -> (Map T.Text (RecordField s a)) -> ParseState
 addRecordObj ps name map =
     let attributes = sequenceA $ elems $ mapWithKey getRecordAttr map
@@ -103,3 +114,25 @@ addPackageObj (ParseState i objs errs dn) name map =
 --             loaded <- loadRelativeTo baseDir UseSemanticCache expr
 --             return $ Right loaded
 
+addImport :: IO ParseState -> T.Text -> Import -> IO ParseState
+addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) = undefined
+addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) =
+    let path = show file
+    in readParseStateFromFile psIO path
+
+readParseStateFromFile :: IO ParseState -> FilePath -> IO ParseState
+readParseStateFromFile psIO fpath = do
+    ps <- psIO
+    contents <- TIO.readFile fpath
+    let exprE = exprFromText fpath contents
+    let psNew = strictParseState
+    let psNew' = case exprE of
+                      Left e -> psNew { errs = [ DhallParseError e ] }
+                      Right expr -> parse psNew expr
+    -- Don't think this next line is going to work because the sub-modules
+    -- will put everything that's already loaded in their own package.
+    -- We originally thought to work from the other direction.
+    -- But could do it this way. Just need to make it the rule that
+    -- everything that gets added, gets added to a pre-existing base package
+    let ps' = includeParseState ps psNew'
+    return ps'

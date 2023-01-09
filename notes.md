@@ -1,3 +1,7 @@
+This approach of having ParseState in an IO I think is the correct one.
+We then need a way of combining ParseStates. Probably easiest if they're all always IO
+This is better because we also get the errors
+
 Just because a dataclass holds a dataclass, doesn't mean it's defined within that dataclass.
 
 We need something like a pointer to a dataclass. But probably just the name is OK.
