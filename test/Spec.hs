@@ -80,7 +80,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
                                 NaturalTypeAttribute "country_code"
                                 , TextTypeAttribute "number"
                             ])
-                        ]
+                        ] ["PhoneNumber"]
 
     -- describe "Parses dhall files" $ do
     --     it "Parses natural.dhall" $ do

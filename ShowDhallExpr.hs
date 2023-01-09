@@ -12,6 +12,7 @@ import Dhall.Core( Expr, denote )
 
 data CliOptions = CliOptions {
     showDhallExpr :: FilePath
+    , denoteExpr :: Bool
 } deriving Show
 
 dhallExprParser = strOption (
@@ -19,14 +20,19 @@ dhallExprParser = strOption (
     <> help "Show Dhall source code expression for selected file"
     <> metavar "FILE"
     )
+denoteParser = switch (
+    long "denote"
+    <> short 'd'
+    <> help "Whether to remove Note expressions"
+    )
 
 cliOptionsParser :: Parser CliOptions
 cliOptionsParser = CliOptions
                     <$> dhallExprParser
-                    -- <*> verboseParser
+                    <*> denoteParser
 
-removeSrc :: Expr s a -> Expr s a
-removeSrc expr = denote expr
+cleanSrc :: Bool -> Expr s a -> Expr s a
+cleanSrc shouldDenote expr = if shouldDenote then denote expr else expr
 
 data ProcessState = ProcessState {
     processed::String
@@ -75,16 +81,17 @@ main :: IO ()
 main = do
     opts <- execParser opts
     let fpath = showDhallExpr opts
+    let shouldDenote = denoteExpr opts
     contents <- TIO.readFile fpath
     let parsed = exprFromText fpath contents
     case parsed of
         Left _ -> print "Could not parse file"
-        Right src -> let
-            srcText = T.pack . show . removeSrc $ src
-            srcFmt = indent srcText
-            in putStr srcFmt
-  where
-    opts = info (cliOptionsParser <**> helper)
-      ( fullDesc
-     <> progDesc "Utility for converting dhall values and types to Python"
-     <> header "Dhall-to-python" )
+        Right expr -> let
+            exprText = T.pack . show . (cleanSrc shouldDenote) $ expr
+            exprFmt = indent exprText
+            in putStr exprFmt
+    where
+        opts = info (cliOptionsParser <**> helper)
+          ( fullDesc
+         <> progDesc "Utility for converting dhall values and types to Python"
+         <> header "Dhall-to-python" )

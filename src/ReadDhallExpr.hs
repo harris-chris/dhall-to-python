@@ -13,10 +13,10 @@ import Dhall.Parser ( Src(..), ParseError, exprFromText )
 import Errors
 
 type ObjName = T.Text
-type AttributeName = T.Text
+type AttrName = T.Text
 type TypeName = T.Text
 
-data RecordTypeAttribute =
+data RecordTypeAttr =
     DoubleTypeAttribute ObjName
     | NaturalTypeAttribute ObjName
     | TextTypeAttribute ObjName
@@ -24,48 +24,61 @@ data RecordTypeAttribute =
     deriving (Show, Eq)
 
 data ParsedObj =
-    PackageObj ObjName [ParsedObj]
-    | RecordObj ObjName [RecordTypeAttribute]
+    PackageObj ObjName [ParsedObj] [ObjName] -- [All objs] [Exposed object names]
+    | RecordObj ObjName [RecordTypeAttr]
     deriving (Show, Eq)
 
 data ParseState = ParseState {
     ignoreUnknown :: Bool
     , objs :: [ParsedObj]
-    , errors :: [ReadDhallError]
+    , errs :: [ReadDhallError]
 }
 
 strictParseState = ParseState False [] []
 
 includeObjE :: ParseState -> (Either ReadDhallError ParsedObj) -> ParseState
-includeObjE ps (Left err) = ps { errors = errors ps ++ [err] }
+includeObjE ps (Left err) = ps { errs = errs ps ++ [err] }
 includeObjE ps (Right obj) = ps { objs = objs ps ++ [obj] }
 
 class Parses a where
     parse :: ParseState -> a -> ParseState
 
-instance Parses (Expr Src a) where
-    -- parse ps@(ParseState True _ _ _) (Note s e) = parse ps $ e
-    parse ps (Note _ (Let (Binding _ name _ _ _ (Record m)) e)) = let
-        recordE = getRecordObj name m
-        ps' = includeObjE ps recordE
+-- The central function here; most others are called from this
+instance (Show a) => Parses (Expr Src a) where
+    parse ps (Note _ (Let (Binding _ name _ _ _ (Record m)) e)) =
+        let ps' = addRecordObj ps name m
         in parse ps' e
-    parse ps@(ParseState False _ _) (Note (Src _ _ sourceTxt) _) =
-        ps { errors = errors ps ++ [ExpressionNotRecognized sourceTxt] }
+    -- Note that we can only parse a package if it's the final obj in the expression
+    parse ps (
+        Note _ (Let (Binding _ name _ _ _ (RecordLit m)) (Var _ ))
+        ) =
+        addPackageObj ps name m
+    parse ps@(ParseState False _ _) expr@(Note (Src _ _ srcTxt) _) =
+        ps { errs = errs ps ++ [ExpressionNotRecognized srcTxt (T.pack $ show expr)] }
 
-getRecordObj :: ObjName -> (Map T.Text (RecordField Src a))-> Either ReadDhallError ParsedObj
-getRecordObj name map = let
-    attributes = sequenceA $ elems $ mapWithKey getRecordAttr map
-    in (RecordObj name ) <$> attributes
+addRecordObj :: ParseState -> ObjName -> (Map T.Text (RecordField Src a)) -> ParseState
+addRecordObj ps name map =
+    let attributes = sequenceA $ elems $ mapWithKey getRecordAttr map
+        objE = (RecordObj name ) <$> attributes
+    in includeObjE ps objE
 
-getRecordAttr :: T.Text -> RecordField Src a -> Either ReadDhallError RecordTypeAttribute
+getRecordAttr :: AttrName -> RecordField Src a -> Either ReadDhallError RecordTypeAttr
 getRecordAttr name (RecordField _ attr _ _) = getRecordTypeAttr name attr
 
-getRecordTypeAttr :: T.Text -> Expr Src a -> Either ReadDhallError RecordTypeAttribute
+getRecordTypeAttr :: AttrName -> Expr Src a -> Either ReadDhallError RecordTypeAttr
 getRecordTypeAttr name (Note _ Natural) = Right $ NaturalTypeAttribute name
 getRecordTypeAttr name (Note _ Double) = Right $ DoubleTypeAttribute name
 getRecordTypeAttr name (Note _ Text) = Right $ TextTypeAttribute name
 getRecordTypeAttr name (Note _ (Var (V tn _))) = Right $ UserDefinedTypeAttribute name tn
-getRecordTypeAttr name (Note (Src _ _ srcText) _) = Left $ RecordTypeAttributeNotRecognized srcText
+getRecordTypeAttr name (Note (Src _ _ txt) _) = Left $ RecordTypeAttrNotRecognized txt
+
+addPackageObj :: ParseState -> T.Text -> (Map T.Text (RecordField Src a)) -> ParseState
+-- only include the objects in the map? Need to include all objects, but only expose the ones in the map
+-- Note that there can only be one package per file and it has to be at the base level
+-- Think about how to handle python named imports
+addPackageObj (ParseState i objs errs) name map =
+    let pkg = PackageObj name (reverse objs) (keys map)
+    in ParseState i [pkg] errs
 
 -- dhallExprToParsedObj :: FilePath -> (IO (Either DhallToPythonError (Expr Src Void)))
 -- dhallFileToDhallExpr fromFile = do

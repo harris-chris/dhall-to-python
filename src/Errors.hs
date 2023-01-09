@@ -4,9 +4,12 @@ import qualified Data.Text as T
 import Dhall.Core ( Expr(..) )
 import Dhall.Parser ( Src, ParseError, exprFromText )
 
+type Source = T.Text
+type Expression = T.Text
+
 data ReadDhallError =
-    RecordTypeAttributeNotRecognized T.Text
-    | ExpressionNotRecognized T.Text
+    RecordTypeAttrNotRecognized T.Text
+    | ExpressionNotRecognized Source Expression
     deriving (Show)
 
 data ConvError =
