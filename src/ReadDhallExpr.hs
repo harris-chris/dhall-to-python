@@ -54,7 +54,13 @@ class ParsesIO a where
 
 instance (Show s) => ParsesIO (Expr s Import) where
     parseIO psIO (Let (Binding _ name _ _ _ (Embed (impt))) e) =
-        addImport psIO name impt
+        let psIO' = addImport psIO name impt
+        in parseIO psIO' e
+    parseIO psIO (Let (Binding _ name _ _ _ (Record m)) e) =
+        let psIO' = addRecordObj name m <$> psIO
+        in parseIO psIO' e
+    parseIO psIO (Let (Binding _ name _ _ _ (RecordLit m)) (Var _ )) =
+        addPackageObj name m <$> psIO
     -- parseIO psIO (
     --     Let (Binding _ name _ _ _ (
     --         Embed (Import (ImportHashed hash (Local prefix file)) Code))
@@ -62,31 +68,17 @@ instance (Show s) => ParsesIO (Expr s Import) where
     --         let path = show file
     --         in readParsedFromFile psIO path
     -- If it's not an IO-related expression, use the non-IO parse
-    parseIO psIO e = do
-        ps <- psIO
-        return $ parse ps e
-
-class Parses a where
-    parse :: Parsed -> a -> Parsed
-
-instance (Show a, Show s) => Parses (Expr s a) where
-    parse ps@(Parsed _ _ _ False) e =
-        let ps' = ps { deNoted = True }
-            deNotedExpr = denote e :: Expr s a
-        in parse ps' deNotedExpr
-    parse ps (Let (Binding _ name _ _ _ (Record m)) e) =
-        let ps' = addRecordObj ps name m
-        in parse ps' e
-    -- Note that we can only parse a package if it's the final obj in the expression
-    parse ps (Let (Binding _ name _ _ _ (RecordLit m)) (Var _ )) =
-        addPackageObj ps name m
-    parse ps@(Parsed False _ _ _) expr =
+    parseIO psIO @(Parsed False _ _ _) expr =
         let showOpts = ShowOptions True (Just (20, 10))
-            exprErr = ExpressionNotRecognized $ showExpr showOpts expr
-        in ps { errs = exprErr:(errs ps) }
+        in addExpressionNotRecognizedError expr showOpts <$> psIO
 
-addRecordObj :: (Show a, Show s) => Parsed -> ObjName -> (Map T.Text (RecordField s a)) -> Parsed
-addRecordObj ps name map =
+addExpressionNotRecognizedError :: Expr s a -> ShowOptions -> Parsed -> Parsed
+addExpressionNotRecognizedError expr showOpts ps =
+    let exprErr = ExpressionNotRecognized $ showExpr showOpts expr
+    in ps { errs = exprErr:(errs ps) }
+
+addRecordObj :: (Show a, Show s) => ObjName -> (Map T.Text (RecordField s a)) -> Parsed -> Parsed
+addRecordObj name map ps =
     let attributes = sequenceA $ elems $ mapWithKey getRecordAttr map
         objE = (RecordObj name ) <$> attributes
     in includeObjE ps objE
@@ -104,11 +96,11 @@ getRecordTypeAttr name expr =
         exprTxt = showExpr showOpts expr
     in Left $ RecordTypeAttrNotRecognized exprTxt
 
-addPackageObj :: Parsed -> T.Text -> (Map T.Text (RecordField s a)) -> Parsed
+addPackageObj :: T.Text -> (Map T.Text (RecordField s a)) -> Parsed ->  Parsed
 -- only include the objects in the map? Need to include all objects, but only expose the ones in the map
 -- Note that there can only be one package per file and it has to be at the base level
 -- Think about how to handle python named imports
-addPackageObj (Parsed i objs errs dn) name map =
+addPackageObj name map (Parsed i objs errs dn) =
     let pkg = PackageObj name objs (keys map)
         pkg' = finalizeObj pkg
     in Parsed i [pkg'] errs dn
@@ -139,7 +131,7 @@ readParsedFromFile psIO fpath = do
     let psNew = strictParsed
     let psNew' = case exprE of
                       Left e -> psNew { errs = [ DhallParseError e ] }
-                      Right expr -> parse psNew expr
+                      Right expr -> (parse . denote) psNew expr
     -- Don't think this next line is going to work because the sub-modules
     -- will put everything that's already loaded in their own package.
     -- We originally thought to work from the other direction.
