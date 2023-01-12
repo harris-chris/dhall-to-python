@@ -10,15 +10,15 @@ type Expression = T.Text
 data ReadDhallError =
     DhallParseError ParseError
     | RecordTypeAttrNotRecognized Expression
-    | ExpressionNotRecognized Expression
+    | ExprNotRecognized Expression
     | UnableToImportPackage FilePath
     deriving (Eq)
 
 instance Show ReadDhallError where
     show (RecordTypeAttrNotRecognized e) =
         "RecordTypeAttrNotRecognized: " ++ T.unpack e
-    show (ExpressionNotRecognized e) =
-        "ExpressionNotRecognized:\n" ++ T.unpack e
+    show (ExprNotRecognized e) =
+        "ExprNotRecognized:\n" ++ T.unpack e
     show (DhallParseError e) = show e
 
 instance Eq ParseError where

@@ -63,7 +63,7 @@ checkFilesMatch actual expected = do
 
 main :: IO ()
 main = hspec $ beforeAll clearTempOutputFolder $ do
-    describe "Parses dhall files" $ do
+    describe "Parses dhall files: " $ do
         it "Parses telephone_number.dhall" $ do
             let psIO = return strictParsed
             let fpath = testSourceFolder </> "phone_number.dhall"

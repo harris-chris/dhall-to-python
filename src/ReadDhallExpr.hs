@@ -5,6 +5,8 @@ module ReadDhallExpr where
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Data.Void
+import Debug.Trace ( trace, traceShowId )
 import Dhall.Map
 import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ) )
 import Dhall.Core ( Import(..), ImportHashed(..), ImportType(..), ImportMode(..) )
@@ -45,6 +47,19 @@ data Parsed = Parsed {
 
 strictParsed = Parsed False [] [] False
 
+parsedFromExprE :: IO (Either ParseError (Expr Void Import)) -> IO Parsed -> IO Parsed
+parsedFromExprE exprEIO psIO = do
+    exprE <- exprEIO
+    case exprE of
+         Left err -> do
+             ps <- psIO
+             let newErr = DhallParseError err
+             return ps { errs = newErr:(errs ps) }
+         Right expr ->
+             parseIO psIO expr
+             -- let exprDenoted = denote expr :: Expr s Import
+             -- in parseIO psIO (exprDenoted :: Expr s Import)
+
 includeObjE :: Parsed -> (Either ReadDhallError ParsedObj) -> Parsed
 includeObjE ps (Left err) = ps { errs = err:(errs ps) }
 includeObjE ps (Right obj) = ps { objs = obj:(objs ps) }
@@ -52,15 +67,15 @@ includeObjE ps (Right obj) = ps { objs = obj:(objs ps) }
 class ParsesIO a where
     parseIO :: IO Parsed -> a -> IO Parsed
 
-instance (Show s) => ParsesIO (Expr s Import) where
+instance ParsesIO (Expr Void Import) where
     parseIO psIO (Let (Binding _ name _ _ _ (Embed (impt))) e) =
         let psIO' = addImport psIO name impt
-        in parseIO psIO' e
+        in trace "parsing import" $ parseIO psIO' e
     parseIO psIO (Let (Binding _ name _ _ _ (Record m)) e) =
         let psIO' = addRecordObj name m <$> psIO
-        in parseIO psIO' e
+        in trace "parsing record" $ parseIO psIO' e
     parseIO psIO (Let (Binding _ name _ _ _ (RecordLit m)) (Var _ )) =
-        addPackageObj name m <$> psIO
+        trace "parsing package" $ addPackageObj name m <$> psIO
     -- parseIO psIO (
     --     Let (Binding _ name _ _ _ (
     --         Embed (Import (ImportHashed hash (Local prefix file)) Code))
@@ -68,13 +83,17 @@ instance (Show s) => ParsesIO (Expr s Import) where
     --         let path = show file
     --         in readParsedFromFile psIO path
     -- If it's not an IO-related expression, use the non-IO parse
-    parseIO psIO @(Parsed False _ _ _) expr =
-        let showOpts = ShowOptions True (Just (20, 10))
-        in addExpressionNotRecognizedError expr showOpts <$> psIO
+    parseIO psIO expr = do
+        ps <- (trace "parsing unknown" psIO)
+        if ignoreUnknown ps then
+            return ps
+        else
+            let showOpts = ShowOptions True (Just (20, 10))
+            in return $ addExprNotRecognized expr showOpts ps
 
-addExpressionNotRecognizedError :: Expr s a -> ShowOptions -> Parsed -> Parsed
-addExpressionNotRecognizedError expr showOpts ps =
-    let exprErr = ExpressionNotRecognized $ showExpr showOpts expr
+addExprNotRecognized :: Expr Void Import -> ShowOptions -> Parsed -> Parsed
+addExprNotRecognized expr showOpts ps =
+    let exprErr = ExprNotRecognized $ showExpr showOpts expr
     in ps { errs = exprErr:(errs ps) }
 
 addRecordObj :: (Show a, Show s) => ObjName -> (Map T.Text (RecordField s a)) -> Parsed -> Parsed
@@ -118,30 +137,25 @@ addPackageObj name map (Parsed i objs errs dn) =
 --             return $ Right loaded
 
 addImport :: IO Parsed -> T.Text -> Import -> IO Parsed
--- addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) = undefined
 addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) =
     let path = show file
     in readParsedFromFile psIO path
 
 readParsedFromFile :: IO Parsed -> FilePath -> IO Parsed
-readParsedFromFile psIO fpath = do
-    ps <- psIO
-    contents <- TIO.readFile fpath
-    let exprE = exprFromText fpath contents
-    let psNew = strictParsed
-    let psNew' = case exprE of
-                      Left e -> psNew { errs = [ DhallParseError e ] }
-                      Right expr -> (parse . denote) psNew expr
-    -- Don't think this next line is going to work because the sub-modules
-    -- will put everything that's already loaded in their own package.
-    -- We originally thought to work from the other direction.
-    -- But could do it this way. Just need to make it the rule that
-    -- everything that gets added, gets added to a pre-existing base package
-    return $ mergePackageIntoParsed fpath ps psNew'
+readParsedFromFile psIO fpath =
+    -- IO contents
+    -- IO (Either ParseError, expr)
+    -- IO ( if err then this state, if expr then parse it)
+    let psNewIO = (\ps -> ps { errs = [], objs = [] }) <$> psIO
+        contentsIO = TIO.readFile fpath
+        exprEIO = exprFromText fpath <$> contentsIO
+        exprEIO' = denote <$> exprEIO
+        psNewIO' = parsedFromExprE exprEIO' psNewIO
+    in mergePackageIntoParsed fpath <$> psIO <*> psNewIO'
 
 mergePackageIntoParsed :: FilePath -> Parsed -> Parsed -> Parsed
 mergePackageIntoParsed fp (Parsed i os es d) (Parsed _ [pk@(PackageObj _ _ _)] ers _) =
-    let pkgFinal = finalizeObj pk
+    let pkgFinal = traceShowId (finalizeObj pk)
     in Parsed i (pkgFinal:os) (ers ++ es) d
 mergePackageIntoParsed fp (Parsed i os es d) (Parsed _ [] ers _) =
     Parsed i os (ers ++ es) d
