@@ -148,8 +148,8 @@ readParsedFromFile psIO fpath =
     -- IO ( if err then this state, if expr then parse it)
     let psNewIO = (\ps -> ps { errs = [], objs = [] }) <$> psIO
         contentsIO = TIO.readFile fpath
-        exprEIO = exprFromText fpath <$> contentsIO
-        exprEIO' = denote <$> exprEIO
+        exprEIO = (exprFromText fpath <$> contentsIO) :: IO ( Either ParseError ( Expr Src Import ) )
+        exprEIO' = ((denote <$>) <$>  exprEIO)
         psNewIO' = parsedFromExprE exprEIO' psNewIO
     in mergePackageIntoParsed fpath <$> psIO <*> psNewIO'
 
