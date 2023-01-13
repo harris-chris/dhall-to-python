@@ -7,6 +7,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void
 import Debug.Trace ( trace, traceShowId )
+import System.FilePath
 import Dhall.Map
 import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ) )
 import Dhall.Core ( Import(..), ImportHashed(..), ImportType(..), ImportMode(..) )
@@ -41,11 +42,11 @@ data Parsed = Parsed {
         ignoreUnknown :: Bool
         , objs :: [ParsedObj]
         , errs :: [ReadDhallError]
-        , deNoted :: Bool
+        , dirName :: Maybe FilePath
     }
     deriving (Eq, Show)
 
-strictParsed = Parsed False [] [] False
+strictParsed = Parsed False [] [] Nothing
 
 parsedFromExprE :: IO (Either ParseError (Expr Void Import)) -> IO Parsed -> IO Parsed
 parsedFromExprE exprEIO psIO = do
@@ -119,10 +120,10 @@ addPackageObj :: T.Text -> (Map T.Text (RecordField s a)) -> Parsed ->  Parsed
 -- only include the objects in the map? Need to include all objects, but only expose the ones in the map
 -- Note that there can only be one package per file and it has to be at the base level
 -- Think about how to handle python named imports
-addPackageObj name map (Parsed i objs errs dn) =
+addPackageObj name map (Parsed i objs errs fp) =
     let pkg = PackageObj name objs (keys map)
         pkg' = finalizeObj pkg
-    in Parsed i [pkg'] errs dn
+    in Parsed i [pkg'] errs fp
 
 -- dhallExprToParsedObj :: FilePath -> (IO (Either DhallToPythonError (Expr Src Void)))
 -- dhallFileToDhallExpr fromFile = do
@@ -143,23 +144,37 @@ addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) =
 
 readParsedFromFile :: IO Parsed -> FilePath -> IO Parsed
 readParsedFromFile psIO fpath =
-    -- IO contents
-    -- IO (Either ParseError, expr)
-    -- IO ( if err then this state, if expr then parse it)
-    let psNewIO = (\ps -> ps { errs = [], objs = [] }) <$> psIO
-        contentsIO = TIO.readFile fpath
+    let psIO' = addDirNameToParsed fpath <$> psIO
+        psNewIO = (\ps -> ps { errs = [], objs = [] }) <$> psIO'
+        --  have IO FilePath
+        --  TIO.readFile FilePath -> IO Text
+        --  if we can do that then we're good
+        --  but what we actually have is TIO.readFile
+        contentsIO = do
+            psNew <- psNewIO
+            let fpath' = (case (dirName psNew) of
+                                (Just dn) -> dn </> fpath
+                                Nothing -> fpath)
+            contents <- TIO.readFile fpath
+            return contents
         exprEIO = (exprFromText fpath <$> contentsIO) :: IO ( Either ParseError ( Expr Src Import ) )
         exprEIO' = ((denote <$>) <$>  exprEIO)
         psNewIO' = parsedFromExprE exprEIO' psNewIO
-    in mergePackageIntoParsed fpath <$> psIO <*> psNewIO'
+    in mergePackageIntoParsed fpath <$> psIO' <*> psNewIO'
+
+addDirNameToParsed :: FilePath -> Parsed -> Parsed
+addDirNameToParsed fpath ps@(Parsed _ _ _ Nothing) =
+    let newDirName = takeDirectory fpath
+    in ps { dirName = Just newDirName }
+addDirNameToParsed fpath ps@(Parsed _ _ _ (Just _)) = ps
 
 mergePackageIntoParsed :: FilePath -> Parsed -> Parsed -> Parsed
-mergePackageIntoParsed fp (Parsed i os es d) (Parsed _ [pk@(PackageObj _ _ _)] ers _) =
+mergePackageIntoParsed fp (Parsed i os es f) (Parsed _ [pk@(PackageObj _ _ _)] ers _) =
     let pkgFinal = traceShowId (finalizeObj pk)
-    in Parsed i (pkgFinal:os) (ers ++ es) d
-mergePackageIntoParsed fp (Parsed i os es d) (Parsed _ [] ers _) =
-    Parsed i os (ers ++ es) d
-mergePackageIntoParsed fp (Parsed i os es d) (Parsed _ (o:objs) ers _) =
+    in Parsed i (pkgFinal:os) (ers ++ es) f
+mergePackageIntoParsed fp (Parsed i os es f) (Parsed _ [] ers _) =
+    Parsed i os (ers ++ es) f
+mergePackageIntoParsed fp (Parsed i os es f) (Parsed _ (o:objs) ers _) =
     let err = UnableToImportPackage fp
-    in Parsed i os (ers ++ es) d
+    in Parsed i os (ers ++ es) f
 
