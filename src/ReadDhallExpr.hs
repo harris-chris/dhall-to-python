@@ -148,18 +148,19 @@ readParsedFromFile psIO fpath =
         psNewIO = (\ps -> ps { errs = [], objs = [] }) <$> psIO'
         --  have IO FilePath
         --  TIO.readFile FilePath -> IO Text
+        --  exprFromText fpath contents -> Either
         --  if we can do that then we're good
         --  but what we actually have is TIO.readFile
-        contentsIO = do
+        exprEIO = do
             psNew <- psNewIO
             let fpath' = (case (dirName psNew) of
                                 (Just dn) -> dn </> fpath
                                 Nothing -> fpath)
-            contents <- TIO.readFile fpath
-            return contents
-        exprEIO = (exprFromText fpath <$> contentsIO) :: IO ( Either ParseError ( Expr Src Import ) )
-        exprEIO' = ((denote <$>) <$>  exprEIO)
-        psNewIO' = parsedFromExprE exprEIO' psNewIO
+            contents <- TIO.readFile fpath'
+            let exprE = (exprFromText fpath' contents)
+            let exprE' = denote <$> exprE
+            return exprE'
+        psNewIO' = parsedFromExprE exprEIO psNewIO
     in mergePackageIntoParsed fpath <$> psIO' <*> psNewIO'
 
 addDirNameToParsed :: FilePath -> Parsed -> Parsed

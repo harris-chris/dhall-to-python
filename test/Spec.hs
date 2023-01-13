@@ -107,7 +107,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
 
         it "Parses person_with_telephone_number.dhall" $ do
             let psIO = return strictParsed
-            let fpath = testSourceFolder </> "personal_details.dhall"
+            let fpath = testSourceFolder </> "person_with_telephone_number.dhall"
             parsed <- readParsedFromFile psIO fpath
             case parsed of
                 (Parsed _ [actualPkg] [] _)  -> do
