@@ -7,6 +7,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void
 import Debug.Trace ( trace, traceShowId )
+import System.Directory ( getCurrentDirectory, makeAbsolute )
 import System.FilePath
 import Dhall.Map
 import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ) )
@@ -42,23 +43,29 @@ data Parsed = Parsed {
         ignoreUnknown :: Bool
         , objs :: [ParsedObj]
         , errs :: [ReadDhallError]
-        , dirName :: Maybe FilePath
+        , filepath :: FilePath
     }
     deriving (Eq, Show)
 
-strictParsed = Parsed False [] [] Nothing
+getStrictParsed :: IO Parsed
+getStrictParsed = Parsed False [] [] <$> getCurrentDirectory
 
-parsedFromExprE :: IO (Either ParseError (Expr Void Import), Parsed) -> IO Parsed
-parsedFromExprE exprEpsIO = do
-    (exprE, ps) <- exprEpsIO
+emptyParsed :: Parsed -> Parsed
+emptyParsed ps = ps { errs = [], objs = [] }
+
+updateFilePath :: FilePath -> Parsed -> Parsed
+updateFilePath fpath ps = ps { filepath = fpath }
+
+parsedFromExprE :: IO (Either ParseError (Expr Void Import)) -> IO Parsed -> IO Parsed
+parsedFromExprE exprEIO psIO = do
+    exprE <- exprEIO
     case exprE of
          Left err -> do
-             (_, ps) <- exprEpsIO
+             ps <- psIO
              let newErr = DhallParseError err
-             return ps { errs = newErr:(errs ps) }
+             return $ ps { errs = newErr:(errs ps) }
          Right expr ->
-             let psIO = return ps
-             in parseIO psIO expr
+             parseIO psIO expr
              -- let exprDenoted = denote expr :: Expr s Import
              -- in parseIO psIO (exprDenoted :: Expr s Import)
 
@@ -140,33 +147,40 @@ addPackageObj name map (Parsed i objs errs fp) =
 
 addImport :: IO Parsed -> T.Text -> Import -> IO Parsed
 addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) =
-    let path = show file
-    in readParsedFromFile psIO path
+    let psIO' = do
+        ps <- psIO
+        let fpath = getAbsoluteFilePath prefix file (filepath ps)
+        return $ (emptyParsed . updateFilePath fpath ) ps
+    let psNewIO' = readParsedFromFile psIO' path
+    in mergePackageIntoParsed path <$> psIO <*> psNewIO'
+
+getAbsoluteFilePath :: FilePrefix -> File -> FilePath -> FilePath
+getAbsoluteFilePath Absolute file current = show file
+getAbsoluteFilePath Here file current =
+    makeAbsolute $ (takeDirectory file) </> (show file)
+getAbsoluteFilePath Parent file current =
+    makeAbsolute $ (takeDirectory . takeDirectory file) </> (show file)
+getAbsoluteFilePath Home file current = makeAbsolute (show file)
+
+strictReadParsedFromFile :: FilePath -> IO Parsed
+strictReadParsedFromFile fpath =
+    let psIO = getStrictParsed
+    in readParsedFromFile psIO fpath
 
 readParsedFromFile :: IO Parsed -> FilePath -> IO Parsed
 readParsedFromFile psIO fpath =
-    -- let psIO' = addDirNameToParsed fpath <$> psIO
-        -- psNewIO = (\ps -> ps { errs = [], objs = [] }) <$> psIO'
-        --  have IO FilePath
-        --  TIO.readFile FilePath -> IO Text
-        --  exprFromText fpath contents -> Either
-        --  if we can do that then we're good
-        --  but what we actually have is TIO.readFile
-    let psNewIO = (\ps -> ps { errs = [], objs = [] }) <$> psIO
-        exprEIOpsNewIO = do
-            psNew <- psNewIO
-            let (psNew', fpath') = checkDirNameAgainstParsed psNew fpath
-            contents <- TIO.readFile fpath'
-            let exprE = (exprFromText fpath' contents)
-            return (denote <$> exprE, psNew')
-        psNewIO' = parsedFromExprE exprEIOpsNewIO
-    in mergePackageIntoParsed fpath <$> psIO <*> psNewIO'
+    let exprEIO = do
+            ps <- psIO
+            contents <- TIO.readFile fpath
+            let exprE = (exprFromText fpath contents)
+            return $ denote <$> exprE
+    in parsedFromExprE exprEIO psIO
 
-checkDirNameAgainstParsed :: Parsed -> FilePath -> (Parsed, FilePath)
-checkDirNameAgainstParsed ps fpath =
+reduceFPath :: FilePath -> Parsed -> FilePath
+reduceFPath fpath ps =
     case (dirName ps) of
-                        (Just dn) -> (ps, dn </> fpath)
-                        Nothing -> (ps { dirName = Just $ takeDirectory fpath}, fpath)
+                        (Just dn) -> dn </> fpath
+                        Nothing -> fpath
 
 addDirNameToParsed :: FilePath -> Parsed -> Parsed
 addDirNameToParsed fpath ps@(Parsed _ _ _ Nothing) =
