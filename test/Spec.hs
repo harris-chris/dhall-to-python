@@ -68,7 +68,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             let fpath = testSourceFolder </> "phone_number.dhall"
             parsed <- strictReadParsedFromFile fpath
             case parsed of
-                (Parsed _ [actualPkg] [] _)  -> do
+                (Parsed _ [actualPkg] [] _) -> do
                     actualPkg `shouldBe` expectedPkg
                     where
                         expectedPkg = PackageObj
@@ -86,7 +86,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             let fpath = testSourceFolder </> "personal_details.dhall"
             parsed <- strictReadParsedFromFile fpath
             case parsed of
-                (Parsed _ [actualPkg] [] _)  -> do
+                (Parsed _ [actualPkg] [] _) -> do
                     actualPkg `shouldBe` expectedPkg
                     where
                         expectedPkg = PackageObj
@@ -107,7 +107,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             let fpath = testSourceFolder </> "person_with_telephone_number.dhall"
             parsed <- strictReadParsedFromFile fpath
             case parsed of
-                (Parsed _ [actualPkg] [] _)  -> do
+                (Parsed _ [actualPkg] [] _) -> do
                     actualPkg `shouldBe` expectedPkg
                     where
                         expectedPkg = PackageObj

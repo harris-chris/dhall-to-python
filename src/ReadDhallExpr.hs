@@ -10,10 +10,10 @@ import Debug.Trace ( trace, traceShowId )
 import System.Directory ( getCurrentDirectory, makeAbsolute )
 import System.FilePath
 import Dhall.Map
-import Dhall.Core ( FilePrefix(..), File(..) )
+import Dhall.Core ( FilePrefix(..), File(..), Directory(..) )
 import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ) )
 import Dhall.Core ( Import(..), ImportHashed(..), ImportType(..), ImportMode(..) )
-import Dhall.Core ( censorExpression, denote )
+import Dhall.Core ( censorExpression, denote, pretty )
 import Dhall.Parser ( Src(..), ParseError, exprFromText )
 
 import DhallExprUtils (ShowOptions(..), showExpr)
@@ -37,7 +37,7 @@ data ParsedObj =
     deriving (Eq, Show)
 
 finalizeObj :: ParsedObj -> ParsedObj
-finalizeObj (PackageObj name objs exp) = PackageObj name (reverse objs) (reverse exp)
+finalizeObj (PackageObj name objs exp) = PackageObj name objs exp
 finalizeObj (RecordObj name attrs) = RecordObj name attrs
 
 data Parsed = Parsed {
@@ -48,14 +48,19 @@ data Parsed = Parsed {
     }
     deriving (Eq, Show)
 
-getStrictParsed :: IO Parsed
-getStrictParsed = Parsed False [] [] <$> getCurrentDirectory
+getStrictParsed :: FilePath -> Parsed
+getStrictParsed fpath = Parsed False [] [] fpath
 
 emptyParsed :: Parsed -> Parsed
 emptyParsed ps = ps { errs = [], objs = [] }
 
 updateFilePath :: FilePath -> Parsed -> Parsed
-updateFilePath fpath ps = ps { filepath = fpath }
+updateFilePath fpath ps =
+    if isRelative fpath then
+        let currentDir = dropFileName $ trace ("current filepath " ++ filepath ps) (filepath ps)
+        in ps { filepath = (trace ("Current dir is " ++ currentDir) currentDir) </> fpath }
+    else
+        ps { filepath = fpath }
 
 parsedFromExprE :: IO (Either ParseError (Expr Void Import)) -> IO Parsed -> IO Parsed
 parsedFromExprE exprEIO psIO = do
@@ -150,32 +155,50 @@ addImport :: IO Parsed -> T.Text -> Import -> IO Parsed
 addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) =
     let psNewIO = do
             ps <- psIO
-            let fpath = getAbsoluteFilePath prefix file (filepath ps)
-            let ps' = (emptyParsed . updateFilePath fpath ) ps
-            readParsedFromFile (return ps') fpath
-    in mergePackageIntoParsed (show file) <$> psIO <*> psNewIO
+            putStrLn $ filepath ps
+            let absPath = getAbsoluteFilePath prefix file (filepath ps)
+            let ps' = (emptyParsed . updateFilePath absPath ) ps
+            readParsedFromFile (return ps') (trace ("absPath is " ++ absPath) absPath)
+    in mergePackageIntoParsed (T.unpack $ pretty file) <$> psIO <*> psNewIO
 
 getAbsoluteFilePath :: FilePrefix -> File -> FilePath -> FilePath
-getAbsoluteFilePath Absolute file current = show file
+getAbsoluteFilePath Absolute file currentIO =
+    dhallFileToFilePath file
 getAbsoluteFilePath Here file current =
-    (takeDirectory $ current) </> (show file)
+    let currentDir = takeDirectory current
+        fileName = dhallFileToFilePath file
+    in (trace ("Rel to " ++ currentDir) currentDir) </> fileName
 getAbsoluteFilePath Parent file current =
-    (takeDirectory . takeDirectory $ current) </> (show file)
+    let parentDir = takeDirectory . takeDirectory $ current
+    in parentDir </> (dhallFileToFilePath file)
 getAbsoluteFilePath Home file current = error "Cannot import relative to $HOME"
+
+dhallFileToFilePath :: File -> FilePath
+dhallFileToFilePath (File (Directory comps) file) =
+    let dir = joinPath $ reverse $ T.unpack <$>  comps
+    in dir </> (T.unpack file)
 
 strictReadParsedFromFile :: FilePath -> IO Parsed
 strictReadParsedFromFile fpath =
-    let psIO = getStrictParsed
+    let ps = getStrictParsed fpath
+        ps' = updateFilePath fpath ps
+        psIO = do return ps'
     in readParsedFromFile psIO fpath
 
-readParsedFromFile :: IO Parsed -> FilePath -> IO Parsed
-readParsedFromFile psIO fpath =
+readParsedFromFileIO :: IO Parsed -> IO FilePath -> IO Parsed
+readParsedFromFileIO psIO fpathIO =
     let exprEIO = do
             ps <- psIO
+            fpath <- fpathIO
             contents <- TIO.readFile fpath
             let exprE = (exprFromText fpath contents)
             return $ denote <$> exprE
     in parsedFromExprE exprEIO psIO
+
+readParsedFromFile :: IO Parsed -> FilePath -> IO Parsed
+readParsedFromFile psIO fpath =
+    let fpathIO = do return fpath
+    in readParsedFromFileIO psIO fpathIO
 
 mergePackageIntoParsed :: FilePath -> Parsed -> Parsed -> Parsed
 mergePackageIntoParsed fp (Parsed i os es f) (Parsed _ [pk@(PackageObj _ _ _)] ers _) =
