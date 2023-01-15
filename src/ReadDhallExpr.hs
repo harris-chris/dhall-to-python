@@ -10,6 +10,7 @@ import Debug.Trace ( trace, traceShowId )
 import System.Directory ( getCurrentDirectory, makeAbsolute )
 import System.FilePath
 import Dhall.Map
+import Dhall.Core ( FilePrefix(..), File(..) )
 import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ) )
 import Dhall.Core ( Import(..), ImportHashed(..), ImportType(..), ImportMode(..) )
 import Dhall.Core ( censorExpression, denote )
@@ -147,20 +148,20 @@ addPackageObj name map (Parsed i objs errs fp) =
 
 addImport :: IO Parsed -> T.Text -> Import -> IO Parsed
 addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) =
-    let psIO' = do
-        ps <- psIO
-        let fpath = getAbsoluteFilePath prefix file (filepath ps)
-        return $ (emptyParsed . updateFilePath fpath ) ps
-    let psNewIO' = readParsedFromFile psIO' path
-    in mergePackageIntoParsed path <$> psIO <*> psNewIO'
+    let psNewIO = do
+            ps <- psIO
+            let fpath = getAbsoluteFilePath prefix file (filepath ps)
+            let ps' = (emptyParsed . updateFilePath fpath ) ps
+            readParsedFromFile (return ps') fpath
+    in mergePackageIntoParsed (show file) <$> psIO <*> psNewIO
 
 getAbsoluteFilePath :: FilePrefix -> File -> FilePath -> FilePath
 getAbsoluteFilePath Absolute file current = show file
 getAbsoluteFilePath Here file current =
-    makeAbsolute $ (takeDirectory file) </> (show file)
+    (takeDirectory $ current) </> (show file)
 getAbsoluteFilePath Parent file current =
-    makeAbsolute $ (takeDirectory . takeDirectory file) </> (show file)
-getAbsoluteFilePath Home file current = makeAbsolute (show file)
+    (takeDirectory . takeDirectory $ current) </> (show file)
+getAbsoluteFilePath Home file current = error "Cannot import relative to $HOME"
 
 strictReadParsedFromFile :: FilePath -> IO Parsed
 strictReadParsedFromFile fpath =
@@ -175,18 +176,6 @@ readParsedFromFile psIO fpath =
             let exprE = (exprFromText fpath contents)
             return $ denote <$> exprE
     in parsedFromExprE exprEIO psIO
-
-reduceFPath :: FilePath -> Parsed -> FilePath
-reduceFPath fpath ps =
-    case (dirName ps) of
-                        (Just dn) -> dn </> fpath
-                        Nothing -> fpath
-
-addDirNameToParsed :: FilePath -> Parsed -> Parsed
-addDirNameToParsed fpath ps@(Parsed _ _ _ Nothing) =
-    let newDirName = takeDirectory fpath
-    in ps { dirName = Just newDirName }
-addDirNameToParsed fpath ps@(Parsed _ _ _ (Just _)) = ps
 
 mergePackageIntoParsed :: FilePath -> Parsed -> Parsed -> Parsed
 mergePackageIntoParsed fp (Parsed i os es f) (Parsed _ [pk@(PackageObj _ _ _)] ers _) =

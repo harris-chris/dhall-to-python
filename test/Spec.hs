@@ -65,9 +65,8 @@ main :: IO ()
 main = hspec $ beforeAll clearTempOutputFolder $ do
     describe "Parses dhall files: " $ do
         it "Parses telephone_number.dhall" $ do
-            let psIO = return strictParsed
             let fpath = testSourceFolder </> "phone_number.dhall"
-            parsed <- readParsedFromFile psIO fpath
+            parsed <- strictReadParsedFromFile fpath
             case parsed of
                 (Parsed _ [actualPkg] [] _)  -> do
                     actualPkg `shouldBe` expectedPkg
@@ -84,9 +83,8 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
                     assertFailure ""
 
         it "Parses personal_details.dhall" $ do
-            let psIO = return strictParsed
             let fpath = testSourceFolder </> "personal_details.dhall"
-            parsed <- readParsedFromFile psIO fpath
+            parsed <- strictReadParsedFromFile fpath
             case parsed of
                 (Parsed _ [actualPkg] [] _)  -> do
                     actualPkg `shouldBe` expectedPkg
@@ -106,9 +104,8 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
                     assertFailure ""
 
         it "Parses person_with_telephone_number.dhall" $ do
-            let psIO = return strictParsed
             let fpath = testSourceFolder </> "person_with_telephone_number.dhall"
-            parsed <- readParsedFromFile psIO fpath
+            parsed <- strictReadParsedFromFile fpath
             case parsed of
                 (Parsed _ [actualPkg] [] _)  -> do
                     actualPkg `shouldBe` expectedPkg
