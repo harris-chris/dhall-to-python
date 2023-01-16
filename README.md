@@ -1,3 +1,6 @@
+we need some distinction between a package, as in a record, and a package as in a file which contains other stuff
+Maybe best to have an 'Import' type that has filename, main expression, and other ParsedObjs in that file.
+
 Note that if we parse the files that are found by import statements as we come across them, the whole program is going to be in an IO Monad. Not sure to what extent that's a problem.
 The alternative would be to go through the entire file structure and record it as some intermediary state, like a tree of Expr s a. This tree would represent the dhall file tree.
 That sounds neater.

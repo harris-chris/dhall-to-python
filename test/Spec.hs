@@ -36,17 +36,17 @@ clearTempOutputFolder = do
 
 phoneNumberPackage :: ParsedObj
 phoneNumberPackage =
-    PackageObj
+    RecordLitObj
         "PhoneNumberPackage" [
             (RecordObj "PhoneNumber" [
                 NaturalTypeAttribute "country_code"
                 , TextTypeAttribute "number"
             ])
-            ] ["PhoneNumber"]
+            ]
 
 personalDetailsPackage :: ParsedObj
 personalDetailsPackage =
-    PackageObj
+    RecordLitObj
         "PersonalDetailsPackage" [
             (RecordObj "Email" [
                 TextTypeAttribute "address"
@@ -55,24 +55,42 @@ personalDetailsPackage =
                 NaturalTypeAttribute "country_code"
                 , TextTypeAttribute "number"
             ])
-            ] ["Email", "PhoneNumber"]
+            ]
+
+contactDetailsPackage :: ParsedObj
+contactDetailsPackage =
+    RecordLitObj
+        "ContactDetailsPackage" [
+            (RecordObj "ContactDetails" [
+                    UserDefinedTypeAttribute "phone_number" "PhoneNumber" []
+                    , UserDefinedTypeAttribute "email" "Email" []
+                ])
+            , (RecordObj "Email" [
+                    TextTypeAttribute "address"
+                ])
+            , (RecordObj "PhoneNumber" [
+                    NaturalTypeAttribute "country_code"
+                    , TextTypeAttribute "number"
+                ])
+            ]
+
 
 personWithPhoneNumberPackage :: ParsedObj
 personWithPhoneNumberPackage =
-    PackageObj
+    RecordLitObj
         "PersonWithPhoneNumberPackage" [
             (RecordObj "Person" [
                 TextTypeAttribute "name"
                 , UserDefinedTypeAttribute
                     "phone_number" "PhoneNumber" ["PhoneNumberPackage"]
             ])
-            , (PackageObj "PhoneNumberPackage" [
+            , (RecordLitObj "PhoneNumberPackage" [
                 (RecordObj "PhoneNumber" [
                     NaturalTypeAttribute "country_code"
                     , TextTypeAttribute "number"
                 ])
-                ] ["PhoneNumber"])
-            ] ["Person"]
+                ])
+            ]
 
 checkTempOutputAgainstTarget :: FilePath -> IO ()
 checkTempOutputAgainstTarget fPath = do
@@ -130,6 +148,16 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             case parsed of
                 (Parsed _ [actualPkg] [] _) -> do
                     actualPkg `shouldBe` personWithPhoneNumberPackage
+                (Parsed _ _ errors _)  -> do
+                    putStrLn $ unlines $ show <$> errors
+                    assertFailure ""
+
+        it "Parses contact_details.dhall" $ do
+            let fpath = testSourceFolder </> "contact_details.dhall"
+            parsed <- strictReadParsedFromFile fpath
+            case parsed of
+                (Parsed _ [actualPkg] [] _) -> do
+                    actualPkg `shouldBe` contactDetailsPackage
                 (Parsed _ _ errors _)  -> do
                     putStrLn $ unlines $ show <$> errors
                     assertFailure ""

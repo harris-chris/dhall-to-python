@@ -35,13 +35,13 @@ data RecordTypeAttr =
     deriving (Eq, Show)
 
 data ParsedObj =
-    PackageObj ObjName [ParsedObj] [ObjName] -- [All objs] [Exposed object names]
+    RecordLitObj ObjName [ParsedObj]
     | RecordObj ObjName [RecordTypeAttr]
     -- | Import FilePath ImportAs [ParsedObj]
     deriving (Eq, Show)
 
 finalizeObj :: ParsedObj -> ParsedObj
-finalizeObj (PackageObj name objs exp) = PackageObj name objs exp
+finalizeObj (RecordLitObj name objs) = RecordLitObj name objs
 finalizeObj (RecordObj name attrs) = RecordObj name attrs
 
 data Parsed = Parsed {
@@ -97,7 +97,7 @@ instance ParsesIO (Expr Void Import) where
         let psIO' = addRecordObj name m <$> psIO
         in trace "parsing record" $ parseIO psIO' e
     parseIO psIO (Let (Binding _ name _ _ _ (RecordLit m)) (Var _ )) =
-        trace "parsing package" $ addPackageObj name m <$> psIO
+        trace "parsing package" $ addRecordLitObj name m <$> psIO
     -- parseIO psIO (
     --     Let (Binding _ name _ _ _ (
     --         Embed (Import (ImportHashed hash (Local prefix file)) Code))
@@ -145,12 +145,12 @@ getRecordTypeAttr name expr =
         exprTxt = showExpr showOpts expr
     in Left $ RecordTypeAttrNotRecognized exprTxt
 
-addPackageObj :: T.Text -> (Map T.Text (RecordField s a)) -> Parsed ->  Parsed
+addRecordLitObj :: T.Text -> (Map T.Text (RecordField s a)) -> Parsed ->  Parsed
 -- only include the objects in the map? Need to include all objects, but only expose the ones in the map
 -- Note that there can only be one package per file and it has to be at the base level
 -- Think about how to handle python named imports
-addPackageObj name map (Parsed i objs errs fp) =
-    let pkg = PackageObj name objs (keys map)
+addRecordLitObj name map (Parsed i objs errs fp) =
+    let pkg = RecordLitObj name objs
         pkg' = finalizeObj pkg
     in Parsed i [pkg'] errs fp
 
@@ -225,7 +225,7 @@ readParsedFromFile psIO fpath =
     in readParsedFromFileIO psIO fpathIO
 
 mergePackageIntoParsed :: FilePath -> Parsed -> Parsed -> Parsed
-mergePackageIntoParsed fp (Parsed i os es f) (Parsed _ [pk@(PackageObj _ _ _)] ers _) =
+mergePackageIntoParsed fp (Parsed i os es f) (Parsed _ [pk@(RecordLitObj _ _)] ers _) =
     let pkgFinal = traceShowId (finalizeObj pk)
     in Parsed i (pkgFinal:os) (ers ++ es) f
 mergePackageIntoParsed fp (Parsed i os es f) (Parsed _ [] ers _) =
