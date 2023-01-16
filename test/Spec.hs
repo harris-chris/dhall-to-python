@@ -110,13 +110,19 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
                 (Parsed _ [actualPkg] [] _) -> do
                     actualPkg `shouldBe` expectedPkg
                     where
-                        expectedPkg = PackageObj
-                            "PersonWithPhoneNumberPackage" [
+                        expectedPkg = PackageObj "PersonWithPhoneNumberPackage"
+                            [
                                 (RecordObj "Person" [
                                     TextTypeAttribute "name"
-                                    , LocalUserDefinedTypeAttribute
-                                        "phone_number" "PhoneNumberPackage.PhoneNumber"
+                                    , ImportedUserDefinedTypeAttribute
+                                        "phone_number" "PhoneNumberPackage" "PhoneNumber"
                                 ])
+                                , (PackageObj "PhoneNumberPackage" [
+                                    (RecordObj "PhoneNumber" [
+                                        NaturalTypeAttribute "country_code"
+                                        , TextTypeAttribute "number"
+                                    ])
+                                    ] ["PhoneNumber"])
                                 ] ["Person"]
                 (Parsed _ _ errors _)  -> do
                     putStrLn $ unlines $ show <$> errors

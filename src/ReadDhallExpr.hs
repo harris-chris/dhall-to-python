@@ -136,7 +136,7 @@ getRecordTypeAttr name Text =
 getRecordTypeAttr name (Var (V tn _)) =
     Right $ LocalUserDefinedTypeAttribute name tn
 getRecordTypeAttr name (Field (Var (V importName _)) (FieldSelection _ tn _)) =
-    Right $ ImportedUserDefinedTypeAttribute name tn importName
+    Right $ ImportedUserDefinedTypeAttribute name importName tn
 getRecordTypeAttr name expr =
     let showOpts = ShowOptions True (Just (60, 0))
         exprTxt = showExpr showOpts expr
