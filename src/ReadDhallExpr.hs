@@ -7,7 +7,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Void
 import Debug.Trace ( trace, traceShowId )
-import System.Directory ( getCurrentDirectory, makeAbsolute )
+import System.Directory ( getCurrentDirectory, getHomeDirectory, makeAbsolute )
 import System.FilePath
 import Dhall.Map
 import Dhall.Core ( FilePrefix(..), File(..), Directory(..) )
@@ -48,8 +48,11 @@ data Parsed = Parsed {
     }
     deriving (Eq, Show)
 
-getStrictParsed :: FilePath -> Parsed
-getStrictParsed fpath = Parsed False [] [] fpath
+getStrictParsed :: FilePath -> IO Parsed
+-- What if an absolute path?
+getStrictParsed fpath =
+    let absPath = makeAbsolute fpath
+    in Parsed False [] [] <$> absPath
 
 emptyParsed :: Parsed -> Parsed
 emptyParsed ps = ps { errs = [], objs = [] }
@@ -153,25 +156,35 @@ addPackageObj name map (Parsed i objs errs fp) =
 
 addImport :: IO Parsed -> T.Text -> Import -> IO Parsed
 addImport psIO name (Import (ImportHashed hash (Local prefix file)) Code) =
-    let psNewIO = do
-            ps <- psIO
-            putStrLn $ filepath ps
-            let absPath = getAbsoluteFilePath prefix file (filepath ps)
-            let ps' = (emptyParsed . updateFilePath absPath ) ps
-            readParsedFromFile (return ps') (trace ("absPath is " ++ absPath) absPath)
-    in mergePackageIntoParsed (T.unpack $ pretty file) <$> psIO <*> psNewIO
+    let absPathIO = getAbsoluteFilePath prefix file ( filepath <$> psIO )
+        psNewIO = emptyParsed <$> psIO
+        -- psNewIO' = updateFilePath <$> absPathIO <*> psNewIO
+        psNewIO' = readParsedFromFileIO psNewIO absPathIO
+    in mergePackageIntoParsed (dhallFileToFilePath file) <$> psIO <*> psNewIO'
 
-getAbsoluteFilePath :: FilePrefix -> File -> FilePath -> FilePath
+    -- let psNewIO = do
+    --         ps <- psIO
+    --         putStrLn $ filepath ps
+    --         let absPath = getAbsoluteFilePath prefix file (filepath ps)
+    --         let ps' = (emptyParsed . updateFilePath absPath ) ps
+    --         readParsedFromFile (return ps') (trace ("absPath is " ++ absPath) absPath)
+    -- in mergePackageIntoParsed (T.unpack $ pretty file) <$> psIO <*> psNewIO
+
+getAbsoluteFilePath :: FilePrefix -> File -> IO FilePath -> IO FilePath
 getAbsoluteFilePath Absolute file currentIO =
-    dhallFileToFilePath file
-getAbsoluteFilePath Here file current =
+    do return $ dhallFileToFilePath file
+getAbsoluteFilePath Here file currentIO = do
+    current <- currentIO
     let currentDir = takeDirectory current
-        fileName = dhallFileToFilePath file
-    in (trace ("Rel to " ++ currentDir) currentDir) </> fileName
-getAbsoluteFilePath Parent file current =
-    let parentDir = takeDirectory . takeDirectory $ current
-    in parentDir </> (dhallFileToFilePath file)
-getAbsoluteFilePath Home file current = error "Cannot import relative to $HOME"
+    let fileName = dhallFileToFilePath (trace ("raw dhall file is " ++ show file) file)
+    return $ (trace ("currentDir : " ++ currentDir) currentDir) </> (trace ("fileName: " ++ fileName) fileName)
+getAbsoluteFilePath Parent file currentIO = do
+    current <- currentIO
+    let parentDir = (takeDirectory . takeDirectory) $ current
+    return $ parentDir </> (dhallFileToFilePath file)
+getAbsoluteFilePath Home file currentIO = do
+    homeDir <- getHomeDirectory
+    return $ homeDir </> (dhallFileToFilePath file)
 
 dhallFileToFilePath :: File -> FilePath
 dhallFileToFilePath (File (Directory comps) file) =
@@ -180,9 +193,8 @@ dhallFileToFilePath (File (Directory comps) file) =
 
 strictReadParsedFromFile :: FilePath -> IO Parsed
 strictReadParsedFromFile fpath =
-    let ps = getStrictParsed fpath
-        ps' = updateFilePath fpath ps
-        psIO = do return ps'
+    let psIO = getStrictParsed fpath
+        -- psIO' = updateFilePath fpath <$> psIO
     in readParsedFromFile psIO fpath
 
 readParsedFromFileIO :: IO Parsed -> IO FilePath -> IO Parsed
