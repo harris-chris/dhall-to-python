@@ -16,7 +16,7 @@ data ReadDhallError =
 
 instance Show ReadDhallError where
     show (RecordTypeAttrNotRecognized e) =
-        "RecordTypeAttrNotRecognized: " ++ T.unpack e
+        "RecordTypeAttrNotRecognized:\n" ++ T.unpack e
     show (ExprNotRecognized e) =
         "ExprNotRecognized:\n" ++ T.unpack e
     show (DhallParseError e) = show e

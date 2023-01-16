@@ -114,7 +114,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
                             "PersonWithPhoneNumberPackage" [
                                 (RecordObj "Person" [
                                     TextTypeAttribute "name"
-                                    , UserDefinedTypeAttribute
+                                    , LocalUserDefinedTypeAttribute
                                         "phone_number" "PhoneNumberPackage.PhoneNumber"
                                 ])
                                 ] ["Person"]

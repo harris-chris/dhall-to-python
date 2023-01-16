@@ -10,6 +10,7 @@ import Debug.Trace ( trace, traceShowId )
 import System.Directory ( getCurrentDirectory, getHomeDirectory, makeAbsolute )
 import System.FilePath
 import Dhall.Map
+import Dhall.Core ( FieldSelection(..) )
 import Dhall.Core ( FilePrefix(..), File(..), Directory(..) )
 import Dhall.Core ( Binding(..), Expr(..), RecordField(..), Var( V ) )
 import Dhall.Core ( Import(..), ImportHashed(..), ImportType(..), ImportMode(..) )
@@ -23,12 +24,14 @@ import Errors
 type ObjName = T.Text
 type AttrName = T.Text
 type TypeName = T.Text
+type ImportName = T.Text
 
 data RecordTypeAttr =
     DoubleTypeAttribute ObjName
     | NaturalTypeAttribute ObjName
     | TextTypeAttribute ObjName
-    | UserDefinedTypeAttribute ObjName TypeName
+    | LocalUserDefinedTypeAttribute ObjName TypeName
+    | ImportedUserDefinedTypeAttribute ObjName ImportName TypeName
     deriving (Eq, Show)
 
 data ParsedObj =
@@ -124,10 +127,16 @@ getRecordAttr :: (Show a, Show s) => AttrName -> RecordField s a -> Either ReadD
 getRecordAttr name (RecordField _ attr _ _) = getRecordTypeAttr name attr
 
 getRecordTypeAttr :: (Show a, Show s) => AttrName -> Expr s a -> Either ReadDhallError RecordTypeAttr
-getRecordTypeAttr name Natural = Right $ NaturalTypeAttribute name
-getRecordTypeAttr name Double = Right $ DoubleTypeAttribute name
-getRecordTypeAttr name Text = Right $ TextTypeAttribute name
-getRecordTypeAttr name (Var (V tn _)) = Right $ UserDefinedTypeAttribute name tn
+getRecordTypeAttr name Natural =
+    Right $ NaturalTypeAttribute name
+getRecordTypeAttr name Double =
+    Right $ DoubleTypeAttribute name
+getRecordTypeAttr name Text =
+    Right $ TextTypeAttribute name
+getRecordTypeAttr name (Var (V tn _)) =
+    Right $ LocalUserDefinedTypeAttribute name tn
+getRecordTypeAttr name (Field (Var (V importName _)) (FieldSelection _ tn _)) =
+    Right $ ImportedUserDefinedTypeAttribute name tn importName
 getRecordTypeAttr name expr =
     let showOpts = ShowOptions True (Just (60, 0))
         exprTxt = showExpr showOpts expr
