@@ -34,6 +34,46 @@ clearTempOutputFolder = do
         acc >> (removeDirectoryRecursive $ tempOutputFolder </> x)
         ) (return ()) removeList
 
+phoneNumberPackage :: ParsedObj
+phoneNumberPackage =
+    PackageObj
+        "PhoneNumberPackage" [
+            (RecordObj "PhoneNumber" [
+                NaturalTypeAttribute "country_code"
+                , TextTypeAttribute "number"
+            ])
+            ] ["PhoneNumber"]
+
+personalDetailsPackage :: ParsedObj
+personalDetailsPackage =
+    PackageObj
+        "PersonalDetailsPackage" [
+            (RecordObj "Email" [
+                TextTypeAttribute "address"
+            ])
+            , (RecordObj "PhoneNumber" [
+                NaturalTypeAttribute "country_code"
+                , TextTypeAttribute "number"
+            ])
+            ] ["Email", "PhoneNumber"]
+
+personWithPhoneNumberPackage :: ParsedObj
+personWithPhoneNumberPackage =
+    PackageObj
+        "PersonWithPhoneNumberPackage" [
+            (RecordObj "Person" [
+                TextTypeAttribute "name"
+                , UserDefinedTypeAttribute
+                    "phone_number" "PhoneNumber" ["PhoneNumberPackage"]
+            ])
+            , (PackageObj "PhoneNumberPackage" [
+                (RecordObj "PhoneNumber" [
+                    NaturalTypeAttribute "country_code"
+                    , TextTypeAttribute "number"
+                ])
+                ] ["PhoneNumber"])
+            ] ["Person"]
+
 checkTempOutputAgainstTarget :: FilePath -> IO ()
 checkTempOutputAgainstTarget fPath = do
     let targetFPath = targetOutputFolder </> fPath
@@ -69,15 +109,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             parsed <- strictReadParsedFromFile fpath
             case parsed of
                 (Parsed _ [actualPkg] [] _) -> do
-                    actualPkg `shouldBe` expectedPkg
-                    where
-                        expectedPkg = PackageObj
-                            "PhoneNumberPackage" [
-                                (RecordObj "PhoneNumber" [
-                                    NaturalTypeAttribute "country_code"
-                                    , TextTypeAttribute "number"
-                                ])
-                                ] ["PhoneNumber"]
+                    actualPkg `shouldBe` phoneNumberPackage
                 (Parsed _ _ errors _)  -> do
                     putStrLn $ unlines $ show <$> errors
                     assertFailure ""
@@ -87,18 +119,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             parsed <- strictReadParsedFromFile fpath
             case parsed of
                 (Parsed _ [actualPkg] [] _) -> do
-                    actualPkg `shouldBe` expectedPkg
-                    where
-                        expectedPkg = PackageObj
-                            "PersonalDetailsPackage" [
-                                (RecordObj "Email" [
-                                    TextTypeAttribute "address"
-                                ])
-                                , (RecordObj "PhoneNumber" [
-                                    NaturalTypeAttribute "country_code"
-                                    , TextTypeAttribute "number"
-                                ])
-                                ] ["Email", "PhoneNumber"]
+                    actualPkg `shouldBe` personalDetailsPackage
                 (Parsed _ _ errors _)  -> do
                     putStrLn $ unlines $ show <$> errors
                     assertFailure ""
@@ -108,22 +129,7 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
             parsed <- strictReadParsedFromFile fpath
             case parsed of
                 (Parsed _ [actualPkg] [] _) -> do
-                    actualPkg `shouldBe` expectedPkg
-                    where
-                        expectedPkg = PackageObj "PersonWithPhoneNumberPackage"
-                            [
-                                (RecordObj "Person" [
-                                    TextTypeAttribute "name"
-                                    , UserDefinedTypeAttribute
-                                        "phone_number" "PhoneNumber" ["PhoneNumberPackage"]
-                                ])
-                                , (PackageObj "PhoneNumberPackage" [
-                                    (RecordObj "PhoneNumber" [
-                                        NaturalTypeAttribute "country_code"
-                                        , TextTypeAttribute "number"
-                                    ])
-                                    ] ["PhoneNumber"])
-                                ] ["Person"]
+                    actualPkg `shouldBe` personWithPhoneNumberPackage
                 (Parsed _ _ errors _)  -> do
                     putStrLn $ unlines $ show <$> errors
                     assertFailure ""
