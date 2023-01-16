@@ -21,22 +21,23 @@ import DhallExprUtils (ShowOptions(..), showExpr)
 
 import Errors
 
-type ObjName = T.Text
 type AttrName = T.Text
+type ObjName = T.Text
+type PackageName = T.Text
 type TypeName = T.Text
-type ImportName = T.Text
+type ImportAs = T.Text
 
 data RecordTypeAttr =
     DoubleTypeAttribute ObjName
     | NaturalTypeAttribute ObjName
     | TextTypeAttribute ObjName
-    | LocalUserDefinedTypeAttribute ObjName TypeName
-    | ImportedUserDefinedTypeAttribute ObjName ImportName TypeName
+    | UserDefinedTypeAttribute ObjName TypeName [PackageName] -- eg foo = x.y.z -> foo z [x, y]
     deriving (Eq, Show)
 
 data ParsedObj =
     PackageObj ObjName [ParsedObj] [ObjName] -- [All objs] [Exposed object names]
     | RecordObj ObjName [RecordTypeAttr]
+    -- | Import FilePath ImportAs [ParsedObj]
     deriving (Eq, Show)
 
 finalizeObj :: ParsedObj -> ParsedObj
@@ -134,9 +135,11 @@ getRecordTypeAttr name Double =
 getRecordTypeAttr name Text =
     Right $ TextTypeAttribute name
 getRecordTypeAttr name (Var (V tn _)) =
-    Right $ LocalUserDefinedTypeAttribute name tn
-getRecordTypeAttr name (Field (Var (V importName _)) (FieldSelection _ tn _)) =
-    Right $ ImportedUserDefinedTypeAttribute name importName tn
+    Right $ UserDefinedTypeAttribute name tn []
+-- TODO: what if this is nested even deeper, eg x.y.z?
+-- This is a type taken from within a record (not a record type).
+getRecordTypeAttr name (Field (Var (V pkgName _)) (FieldSelection _ tn _)) =
+    Right $ UserDefinedTypeAttribute name tn [pkgName]
 getRecordTypeAttr name expr =
     let showOpts = ShowOptions True (Just (60, 0))
         exprTxt = showExpr showOpts expr

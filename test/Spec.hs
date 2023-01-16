@@ -114,8 +114,8 @@ main = hspec $ beforeAll clearTempOutputFolder $ do
                             [
                                 (RecordObj "Person" [
                                     TextTypeAttribute "name"
-                                    , ImportedUserDefinedTypeAttribute
-                                        "phone_number" "PhoneNumberPackage" "PhoneNumber"
+                                    , UserDefinedTypeAttribute
+                                        "phone_number" "PhoneNumber" ["PhoneNumberPackage"]
                                 ])
                                 , (PackageObj "PhoneNumberPackage" [
                                     (RecordObj "PhoneNumber" [
